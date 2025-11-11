@@ -39,13 +39,14 @@ st.markdown("""
     div.stButton>button:hover{background-color:#ffd700;color:#4a2600;transform:scale(1.05);}
     footer{visibility:hidden;}
 
-/* --- UNIFORM IMAGE HEIGHT & REMOVE WHITE BACKGROUND BOX --- */
-figure[data-testid="stImage"] {
-    background: transparent !important;
-    box-shadow: none !important;
-    border-radius: 10px !important;
-    margin: 0 !important;
-    padding: 0 !important;
+/* --- REMOVE WHITE GAP ABOVE IMAGES COMPLETELY --- */
+[data-testid="stImage"] {
+  background: none !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  margin-top: -12px !important;    /* pull image upward */
+  padding-top: 0 !important;       /* remove container padding */
+  overflow: hidden !important;     /* clip any extra white area */
 }
 
 /* Force the internal image itself to fill and crop uniformly */
