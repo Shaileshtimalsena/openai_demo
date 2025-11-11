@@ -47,12 +47,16 @@ st.markdown("""
         border-radius: 10px;        /* make corners soft */
     }
     
-        /* --- HIDE WHITE IMAGE BOX BY MATCHING BACKGROUND --- */
+        /* --- REMOVE WHITE GAP ABOVE IMAGES COMPLETELY --- */
 [data-testid="stImage"] {
-  background: linear-gradient(180deg,#e0f7fa 0%,#80deea 100%) !important;
+  background: none !important;
   box-shadow: none !important;
   border-radius: 10px !important;
+  margin-top: -12px !important;    /* pull image upward */
+  padding-top: 0 !important;       /* remove container padding */
+  overflow: hidden !important;     /* clip any extra white area */
 }
+
 
 
     
