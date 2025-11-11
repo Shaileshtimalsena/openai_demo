@@ -41,7 +41,7 @@ st.markdown("""
 
         /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
     [data-testid="stImage"] img {
-        height: 360px !important;   /* set consistent image height */
+        height: 160px !important;   /* set consistent image height */
         width: 100% !important;     /* full width inside card */
         object-fit: cover !important; /* crop instead of squish */
         border-radius: 10px;        /* make corners soft */
