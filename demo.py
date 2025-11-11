@@ -197,7 +197,7 @@ with home_tab:
                             {"role": "user", "content": [
                                 {"type": "text", "text": "Analyze this artwork."},
                                 {"type": "image_url",
-                                 "image_url": f"data:image/png;base64,{img_b64}"}
+                                    "image_url": {"url": f"data:image/png;base64,{img_b64}"}
                             ]}
                         ],
                     )
