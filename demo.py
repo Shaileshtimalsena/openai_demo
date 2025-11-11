@@ -48,7 +48,7 @@ st.markdown("""
 @st.cache_data
 def load_artworks():
     # TODO: Replace <username> and <repo> with your actual GitHub details
-    url = "https://raw.githubusercontent.com/<username>/<repo>/main/Arts.csv"
+    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts.csv"
     df = pd.read_csv(url)
     return df.to_dict("records")
 
