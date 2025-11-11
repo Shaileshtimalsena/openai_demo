@@ -78,7 +78,7 @@ def make_drive_display_url(link):
 @st.cache_data
 def load_artworks():
     # ✅ Your actual CSV file hosted on GitHub
-    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts.csv"
+    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts_.csv"
 
     df = pd.read_csv(url)
     # Add displayable image column
