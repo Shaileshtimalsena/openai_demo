@@ -1,4 +1,4 @@
-# ===============================================================
+    # ===============================================================
 #  ESAG Art Hub – Final Prototype (Dynamic CSV + AI + PDF/JPG Support)
 # ===============================================================
 
@@ -160,21 +160,37 @@ with home_tab:
     # Display Gallery
     st.markdown("### Gallery")
     cols = st.columns(3)
-    for i, art in enumerate(ordered_artworks):
-        with cols[i % 3]:
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            link = art.get("link", "")
-            if link:
+    # ---------- IMAGE DISPLAY (PDF + JPG auto-detect) ----------
+def fix_drive_url(url):
+    """Convert Google Drive link to direct-viewable image link."""
+    if "drive.google.com" in url and "/d/" in url:
+        file_id = url.split("/d/")[1].split("/")[0]
+        return f"https://drive.google.com/uc?export=view&id={file_id}"
+    return url
+
+for i, art in enumerate(ordered_artworks):
+    with cols[i % 3]:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        link = art.get("link", "")
+        if link:
+            try:
+                # Extract file ID
                 file_id = link.split("/d/")[1].split("/")[0] if "/d/" in link else ""
+                # If PDF, use Drive thumbnail
                 if link.endswith(".pdf"):
-                    img_b64 = pdf_to_image_base64(link)
-                    if img_b64:
-                        st.image(f"data:image/png;base64,{img_b64}", use_column_width=True)
-                    else:
-                        st.warning("PDF preview not available.")
+                    thumb_url = f"https://drive.google.com/thumbnail?id={file_id}"
                 else:
-                    thumb_url = f"https://drive.google.com/uc?export=view&id={file_id}"
-                    st.image(thumb_url, use_column_width=True)
+                    thumb_url = fix_drive_url(link)
+                # Display the image
+                st.image(thumb_url, use_column_width=True)
+            except Exception as e:
+                st.warning(f"Image not available: {e}")
+
+        # Artwork details
+        st.markdown(f"**{art['title']}** <br>*by {art['artist']}*", unsafe_allow_html=True)
+        st.caption(f"{art['price_range']} • {art['artist']}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
             st.markdown(f"**{art['title']}**<br>*by {art['artist']}*", unsafe_allow_html=True)
             st.caption(f"{art['price_range']} • {art['artist']}")
             st.markdown("</div>", unsafe_allow_html=True)
