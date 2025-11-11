@@ -1,5 +1,5 @@
 # ===============================================================
-#  ESAG Art Hub – Final Prototype (Dynamic CSV + Drive Preview + AI)
+#  ESAG Art Hub – Final Streamlit App (Dynamic CSV + Drive Thumbnails + AI)
 # ===============================================================
 
 import streamlit as st
@@ -42,28 +42,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
-# 3. Load Artwork Data from GitHub (Auto Google Drive Preview)
+# 3. Load Artwork Data from GitHub (using Google Drive Thumbnails)
 # ---------------------------------------------------------------
-
 @st.cache_data
 def make_drive_display_url(link):
-    """Convert any Google Drive link to a direct-view or thumbnail URL."""
+    """
+    Converts any Google Drive sharing link into a thumbnail preview link.
+    Works for both images and PDFs.
+    """
     if not isinstance(link, str):
         return None
     if "drive.google.com" in link and "/d/" in link:
         file_id = link.split("/d/")[1].split("/")[0]
-        if link.lower().endswith(".pdf"):
-            return f"https://drive.google.com/thumbnail?id={file_id}"
-        else:
-            return f"https://drive.google.com/uc?export=view&id={file_id}"
+        # Always use Google Drive's thumbnail endpoint for speed and compatibility
+        return f"https://drive.google.com/thumbnail?id={file_id}"
     return link
+
 
 @st.cache_data
 def load_artworks():
+    # ✅ Your actual CSV file hosted on GitHub
     url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts.csv"
+
     df = pd.read_csv(url)
+    # Add displayable image column
     df["image"] = df["link"].apply(make_drive_display_url)
     return df.to_dict("records")
+
 
 ARTWORKS = load_artworks()
 
@@ -73,7 +78,9 @@ ARTWORKS = load_artworks()
 def recommend_artworks_with_openai(query, artworks):
     if not query:
         return None, artworks
-    prompt = f"You are an AI art curator. The buyer wants: '{query}'. Here are available artworks: {', '.join([a['title'] for a in artworks])}. Rank the 3 most relevant and explain briefly."
+    prompt = f"You are an AI art curator. The buyer is looking for: '{query}'. " \
+             f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. " \
+             "Rank the 3 most relevant and explain briefly."
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -113,7 +120,6 @@ with home_tab:
 
     artists = sorted(set(a["artist"] for a in ARTWORKS))
     prices = sorted(set(a["price_range"] for a in ARTWORKS))
-    
     a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
     p_sel = st.sidebar.selectbox("Filter by Price Range", ["All"] + prices)
 
@@ -123,6 +129,7 @@ with home_tab:
     if p_sel != "All":
         filtered = [a for a in filtered if a["price_range"] == p_sel]
 
+    # --- AI Recommendations ---
     st.markdown("### Recommended Artworks")
     if query and openai.api_key:
         with st.spinner("Finding best matches..."):
@@ -136,6 +143,7 @@ with home_tab:
     else:
         ordered = filtered
 
+    # --- Gallery ---
     st.markdown("### Gallery")
     cols = st.columns(3)
     for i, art in enumerate(ordered):
@@ -146,18 +154,20 @@ with home_tab:
 
             if img_url:
                 st.image(img_url, use_column_width=True)
+                # Add PDF view button if applicable
                 if link.lower().endswith(".pdf"):
                     st.markdown(f"[📄 View Full PDF]({link})", unsafe_allow_html=True)
             else:
                 st.warning("Preview not available.")
 
-            st.markdown(f"**{art.get('title','Untitled')}**<br>*by {art.get('artist','Unknown')}*", unsafe_allow_html=True)
+            st.markdown(f"**{art.get('title','Untitled')}**<br>*by {art.get('artist','Unknown')}*",
+                        unsafe_allow_html=True)
             st.caption(f"{art.get('price_range','')} • {art.get('suburb','')}")
             if art.get("price"):
                 st.caption(f"💲{art['price']}")
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------- AI Tagging ----------
+    # --- AI Tagging & Analysis ---
     st.markdown("### AI Tagging & Analysis")
     up = st.file_uploader("Upload artwork (JPG/PNG) for AI analysis", type=["jpg","jpeg","png"], key="ai_uploader")
     if up:
@@ -172,7 +182,9 @@ with home_tab:
                         model="gpt-4o-mini",
                         messages=[
                             {"role":"system","content":prompt},
-                            {"role":"user","content":[{"type":"text","text":"Analyze this."},{"type":"image_url","image_url":{"url":f"data:image/png;base64,{b64}"}}]}
+                            {"role":"user","content":[
+                                {"type":"text","text":"Analyze this."},
+                                {"type":"image_url","image_url":{"url":f"data:image/png;base64,{b64}"}}]}
                         ],
                     )
                     st.success("**AI Analysis Result:**")
