@@ -194,10 +194,10 @@ with home_tab:
                         model="gpt-4o-mini",
                        messages=[
                             {"role": "system", "content": prompt},
-                            ["role": "user", "content": {
+                            {"role": "user", "content": [
                                 {"type": "text", "text": "Analyze this artwork."},
-                                ["type": "image_url",
-                                 "image_url": {"url": f"data:image/png;base64,{img_b64}"}
+                                {"type": "image_url",
+                                 "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
                             ]}
                         ],
                     )
