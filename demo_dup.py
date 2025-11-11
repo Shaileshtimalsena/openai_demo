@@ -38,6 +38,16 @@ st.markdown("""
           border-radius:10px;padding:8px 20px;font-weight:600;transition:0.3s;}
     div.stButton>button:hover{background-color:#ffd700;color:#4a2600;transform:scale(1.05);}
     footer{visibility:hidden;}
+
+        /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
+    [data-testid="stImage"] img {
+        height: 260px !important;   /* set consistent image height */
+        width: 100% !important;     /* full width inside card */
+        object-fit: cover !important; /* crop instead of squish */
+        border-radius: 10px;        /* make corners soft */
+    }
+
+    
     </style>
 """, unsafe_allow_html=True)
 
