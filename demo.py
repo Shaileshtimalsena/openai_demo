@@ -191,9 +191,7 @@ for i, art in enumerate(ordered_artworks):
         st.caption(f"{art['price_range']} • {art['artist']}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown(f"**{art['title']}**<br>*by {art['artist']}*", unsafe_allow_html=True)
-            st.caption(f"{art['price_range']} • {art['artist']}")
-            st.markdown("</div>", unsafe_allow_html=True)
+        
 
     # Upload for AI Tagging
     st.markdown("### AI Tagging & Analysis")
