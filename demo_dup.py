@@ -49,14 +49,13 @@ st.markdown("""
   overflow: hidden !important;     /* clip any extra white area */
 }
 
-/* Force the internal image itself to fill and crop uniformly */
-figure[data-testid="stImage"] img {
-    height: 160px !important;
-    width: 100% !important;
-    object-fit: cover !important;
-    border-radius: 10px !important;
-    background: transparent !important;
-}
+ /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
+    [data-testid="stImage"] img {
+        height: 160px !important;
+        width: 100% !important;
+        object-fit: cover !important;
+        border-radius: 10px;
+    }
 
 
 
