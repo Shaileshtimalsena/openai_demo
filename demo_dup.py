@@ -51,8 +51,8 @@ st.markdown("""
 [data-testid="stImage"] {
   background: none !important;
   box-shadow: none !important;
-  border-radius: 50px !important;
-  margin-top: -35px !important;    /* pull image upward */
+  border-radius: 10px !important;
+  margin-top: -32px !important;    /* pull image upward */
   padding-top: 0 !important;       /* remove container padding */
   overflow: hidden !important;     /* clip any extra white area */
 }
