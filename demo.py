@@ -192,15 +192,14 @@ with home_tab:
                 try:
                     response = openai.chat.completions.create(
                         model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": prompt},
-                            {"role": "user", "content": [
-                                {"type": "text", "text": "Analyze this artwork."},
-                                {"type": "image_url",
-                                    "image_url": {"url": f"data:image/png;base64,{img_b64}"}
-                            ]}
-                        ],
-                    )
+                       messages = [
+    {"role": "system", "content": prompt},
+    {"role": "user", "content": [
+        {"type": "text", "text": "Analyze this artwork."},
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+    ]}
+]
+
                     st.success("**AI Analysis Result:**")
                     st.write(response.choices[0].message.content)
                 except Exception as e:
