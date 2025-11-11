@@ -1,5 +1,5 @@
-    # ===============================================================
-#  ESAG Art Hub – Final Prototype (Dynamic CSV + AI + PDF/JPG Support)
+# ===============================================================
+#  ESAG Art Hub – Final Prototype (Dynamic CSV + AI + PDF/JPG + Fixes)
 # ===============================================================
 
 import streamlit as st
@@ -48,17 +48,18 @@ st.markdown("""
 @st.cache_data
 def load_artworks():
     # TODO: Replace <username> and <repo> with your actual GitHub details
-    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts.csv"
+    url = "https://raw.githubusercontent.com/<username>/<repo>/main/Arts.csv"
     df = pd.read_csv(url)
     return df.to_dict("records")
 
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 4. Helper: Convert PDF to Image
+# 4. Helper Functions
 # ---------------------------------------------------------------
 @st.cache_data
 def pdf_to_image_base64(pdf_url):
+    """Convert first page of PDF to image preview."""
     try:
         response = requests.get(pdf_url)
         if response.status_code != 200:
@@ -68,13 +69,16 @@ def pdf_to_image_base64(pdf_url):
         buf = BytesIO()
         img.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("utf-8")
-    except Exception as e:
-        st.warning(f"Could not preview PDF: {e}")
+    except Exception:
         return None
 
-# ---------------------------------------------------------------
-# 5. AI Recommendation (based on text query)
-# ---------------------------------------------------------------
+
+def get_drive_file_id(link):
+    if "drive.google.com" in link and "/d/" in link:
+        return link.split("/d/")[1].split("/")[0]
+    return None
+
+
 def recommend_artworks_with_openai(query, artworks):
     """Use OpenAI to recommend and rank artworks matching buyer description."""
     if not query:
@@ -97,7 +101,7 @@ def recommend_artworks_with_openai(query, artworks):
             messages=[{"role": "system", "content": prompt}],
         )
         text = response.choices[0].message.content
-        pattern = r"\d+\.\s*([^\n-]+)"
+        pattern = r"\\d+\\.\\s*([^\\n-]+)"
         matched_titles = re.findall(pattern, text)
         reordered = []
         titles_lower = [t.strip().lower() for t in matched_titles]
@@ -115,7 +119,7 @@ def recommend_artworks_with_openai(query, artworks):
         return None, artworks
 
 # ---------------------------------------------------------------
-# 6. Header & Tabs
+# 5. Header & Tabs
 # ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
@@ -157,53 +161,52 @@ with home_tab:
     else:
         ordered_artworks = filtered
 
-    # Display Gallery
+    # ---------- GALLERY DISPLAY ----------
     st.markdown("### Gallery")
     cols = st.columns(3)
-    # ---------- IMAGE DISPLAY (PDF + JPG auto-detect) ----------
-def fix_drive_url(url):
-    """Convert Google Drive link to direct-viewable image link."""
-    if "drive.google.com" in url and "/d/" in url:
-        file_id = url.split("/d/")[1].split("/")[0]
-        return f"https://drive.google.com/uc?export=view&id={file_id}"
-    return url
+    for i, art in enumerate(ordered_artworks):
+        with cols[i % 3]:
+            st.markdown("<div class='card'>", unsafe_allow_html=True)
+            link = art.get("link", "")
+            file_id = get_drive_file_id(link)
 
-for i, art in enumerate(ordered_artworks):
-    with cols[i % 3]:
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        link = art.get("link", "")
-        if link:
-            try:
-                # Extract file ID
-                file_id = link.split("/d/")[1].split("/")[0] if "/d/" in link else ""
-                # If PDF, use Drive thumbnail
+            # Detect and display image
+            if file_id:
                 if link.endswith(".pdf"):
                     thumb_url = f"https://drive.google.com/thumbnail?id={file_id}"
                 else:
-                    thumb_url = fix_drive_url(link)
-                # Display the image
+                    thumb_url = f"https://drive.google.com/uc?export=view&id={file_id}"
                 st.image(thumb_url, use_column_width=True)
-            except Exception as e:
-                st.warning(f"Image not available: {e}")
+            else:
+                st.warning("No image available.")
 
-        # Artwork details
-        st.markdown(f"**{art['title']}** <br>*by {art['artist']}*", unsafe_allow_html=True)
-        st.caption(f"{art['price_range']} • {art['artist']}")
-        st.markdown("</div>", unsafe_allow_html=True)
+            # Artwork details
+            st.markdown(f"**{art.get('title', 'Untitled')}** <br>*by {art.get('artist', 'Unknown')}*",
+                        unsafe_allow_html=True)
+            st.caption(f"{art.get('price_range', '')} • {art.get('suburb', '')}")
+            if art.get("price"):
+                st.caption(f"💲{art['price']}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        
-
-    # Upload for AI Tagging
+    # ---------- AI TAGGING & ANALYSIS ----------
     st.markdown("### AI Tagging & Analysis")
-    uploaded = st.file_uploader("Upload artwork (JPG/PNG) to analyze with AI", type=["jpg", "jpeg", "png"])
+    uploaded = st.file_uploader(
+        "Upload artwork (JPG/PNG) to analyze with AI",
+        type=["jpg", "jpeg", "png"],
+        key="art_upload_ai"
+    )
+
     if uploaded:
         img = Image.open(uploaded).convert("RGB")
         st.image(img, caption="Uploaded Artwork", use_column_width=True)
+
         if openai.api_key:
             st.info("Using OpenAI for real analysis…")
             with st.spinner("Analyzing artwork with GPT-4o-mini…"):
-                prompt = ("You are an art expert. Analyze the uploaded artwork and describe its "
-                          "theme, color palette, and emotion briefly.")
+                prompt = (
+                    "You are an art expert. Analyze the uploaded artwork and describe its "
+                    "theme, color palette, and emotion briefly."
+                )
                 img_b64 = base64.b64encode(uploaded.read()).decode("utf-8")
                 try:
                     response = openai.chat.completions.create(
@@ -223,7 +226,7 @@ for i, art in enumerate(ordered_artworks):
             st.warning("No API key detected — running in demo mode.")
 
 # ===============================================================
-#  ABOUT / PRIVACY / CONTACT
+#  OTHER TABS
 # ===============================================================
 with about_tab:
     st.markdown("## About Us")
