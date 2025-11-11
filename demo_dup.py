@@ -47,11 +47,13 @@ st.markdown("""
         border-radius: 10px;        /* make corners soft */
     }
     
-        /* --- REMOVE WHITE IMAGE PLACEHOLDER BACKGROUND --- */
-    [data-testid="stImage"] {
-        background: transparent !important;
-        box-shadow: none !important;
-    }
+        /* --- HIDE WHITE IMAGE BOX BY MATCHING BACKGROUND --- */
+[data-testid="stImage"] {
+  background: linear-gradient(180deg,#e0f7fa 0%,#80deea 100%) !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+}
+
 
     
     </style>
