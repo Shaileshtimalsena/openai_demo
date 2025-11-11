@@ -46,6 +46,12 @@ st.markdown("""
         object-fit: cover !important; /* crop instead of squish */
         border-radius: 10px;        /* make corners soft */
     }
+    
+        /* --- REMOVE WHITE IMAGE PLACEHOLDER BACKGROUND --- */
+    [data-testid="stImage"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
 
     
     </style>
