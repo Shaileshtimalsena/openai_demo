@@ -2,3 +2,6 @@ streamlit
 openai
 python-dotenv
 pillow
+pandas
+requests
+pdf2image
