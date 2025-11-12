@@ -118,13 +118,13 @@ ARTWORKS = load_artworks()
 
 def recommend_artworks_with_openai(query, artworks):
     """
-    Ask OpenAI for up to 10 short recommendations (with 1-line reasons)
-    and reorder the gallery to follow the AI list exactly.
+    Ask OpenAI for up to 10 short recommendations (1 line each),
+    then reorder the gallery to follow the AI's order exactly.
     """
     if not query:
         return None, artworks
 
-    # Build a minimal catalogue line per artwork to help the AI be literal (e.g., 'flower' -> flower tags)
+    # Give the AI more context (titles + tags + suburb) so it picks literal matches
     catalogue_lines = []
     for a in artworks:
         catalogue_lines.append(
@@ -148,25 +148,27 @@ def recommend_artworks_with_openai(query, artworks):
 
     try:
         import re, difflib
-        resp = openai.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
-            temperature: 0.4
+            temperature=0.4,
         )
-        text = resp.subject.choices[0].message.content.strip()  # <-- if your SDK differs, keep your original access pattern
+        text = response.choices[0].message.content.strip()
 
-        # Extract up to 10 titles in order; allow "1. Title – reason" or "1. Title: reason"
+        # Extract up to 10 titles, accepting "–", "-" or ":" separators after the title
         lines = re.findall(r"^\s*\d+\.\s*([^\n]+)", text, flags=re.MULTILINE)
         ranked_titles = []
         for ln in lines:
-            t = re.split(r"[-–—:]", ln, maxsplit=1)[0].strip()
+            # split on first separator and keep the title part
+            t = re.split(r"[–—:-]", ln, maxsplit=1)[0].strip()
             if t:
                 ranked_titles.append(t.lower())
 
         if not ranked_titles:
-            return text, artworks  # nothing to reorder
+            # Nothing parsed from AI -> keep original order but still show the text
+            return text, artworks
 
-        # Map AI titles -> best matching actual artwork by index; track used by INDEX (int), not dict
+        # Reorder to follow AI order exactly; track USED by index (ints), not dicts
         used_idx = set()
         ordered = []
         for ai in ranked_titles[:10]:
@@ -178,12 +180,12 @@ def recommend_artworks_with_openai(query, artworks):
                 if score > best_score:
                     best_score = score
                     best_idx = idx
-            # accept match if reasonably close
-            if best_idx is not None and best_idx not in used_idx and best_score >= 0.30:
+            # accept the match if reasonably close
+            if best_idx is not None and best_idx not in used_idx and best_score >= 0.35:
                 ordered.append(artworks[best_idx])
                 used_idx.add(best_idx)
 
-        # Append remaining artworks in original order
+        # Append remaining artworks (not listed by AI) in original order
         for idx, art in enumerate(artworks):
             if idx not in used_idx:
                 ordered.append(art)
