@@ -118,26 +118,28 @@ ARTWORKS = load_artworks()
 
 def recommend_artworks_with_openai(query, artworks):
     """
-    AI gives up-to-10 short recommendations, and the gallery strictly follows
-    the AI's 1–10 order before showing remaining artworks.
+    Ask OpenAI for up to 10 short recommendations (with 1-line reasons)
+    and reorder the gallery to follow the AI list exactly.
     """
     if not query:
         return None, artworks
 
-    # --- Prompt now requests up to 10 items ---
+    # Build a minimal catalogue line per artwork to help the AI be literal (e.g., 'flower' -> flower tags)
+    catalogue_lines = []
+    for a in artworks:
+        catalogue_lines.append(
+            f"- {a.get('title','Untitled')} (tags: {a.get('tag 1','')}, {a.get('tag 2','')}, suburb: {a.get('suburb','')})"
+        )
+
     prompt = (
         f"You are an expert art curator. A buyer is looking for: '{query}'.\n"
         "Here is the list of available artworks with their tags and suburbs:\n"
-        + "\n".join([
-            f"- {a.get('title','Untitled')} "
-            f"(tags: {a.get('tag 1','')}, {a.get('tag 2','')}, suburb: {a.get('suburb','')})"
-            for a in artworks
-        ]) +
+        + "\n".join(catalogue_lines) +
         "\n\nSelect up to 10 artworks that best match the buyer's request. "
-        "For each, write one short logical reason (max one line) why it fits. "
-        "Be literal if the buyer names a concrete object (e.g., 'flower' "
-        "should pick artworks truly related to flowers). "
-        "Format:\nTop Recommendations:\n"
+        "For each, write ONE short logical reason (max one line). Be literal if the buyer names a concrete object "
+        "(e.g., 'flower' must select artworks explicitly about flowers).\n"
+        "Format exactly:\n"
+        "Top Recommendations:\n"
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "...\n"
@@ -145,37 +147,45 @@ def recommend_artworks_with_openai(query, artworks):
     )
 
     try:
-        import difflib
-        response = openai.chat.completions.create(
+        import re, difflib
+        resp = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
-            temperature=0.4,
+            temperature: 0.4
         )
-        text = response.choices[0].message.content.strip()
+        text = resp.subject.choices[0].message.content.strip()  # <-- if your SDK differs, keep your original access pattern
 
-        # ---- Extract up to 10 AI titles in exact order ----
-        ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
-        ranked_titles = [t.strip().lower() for t in ranked_titles if t.strip()]
+        # Extract up to 10 titles in order; allow "1. Title – reason" or "1. Title: reason"
+        lines = re.findall(r"^\s*\d+\.\s*([^\n]+)", text, flags=re.MULTILINE)
+        ranked_titles = []
+        for ln in lines:
+            t = re.split(r"[-–—:]", ln, maxsplit=1)[0].strip()
+            if t:
+                ranked_titles.append(t.lower())
 
-        # ---- Reorder artworks exactly by AI order ----
+        if not ranked_titles:
+            return text, artworks  # nothing to reorder
+
+        # Map AI titles -> best matching actual artwork by index; track used by INDEX (int), not dict
+        used_idx = set()
         ordered = []
-        used = set()
-        for ai_title in ranked_titles:
-            best_match = None
-            best_score = 0
-            for art in artworks:
-                title_l = art.get("title", "").lower()
-                score = difflib.SequenceMatcher(None, ai_title, title_l).ratio()
+        for ai in ranked_titles[:10]:
+            best_idx = None
+            best_score = 0.0
+            for idx, art in enumerate(artworks):
+                title_l = str(art.get("title", "")).lower()
+                score = difflib.SequenceMatcher(None, ai, title_l).ratio()
                 if score > best_score:
                     best_score = score
-                    best_match = art
-            if best_match and best_match not in used:
-                ordered.append(best_match)
-                used.add(best_match)
+                    best_idx = idx
+            # accept match if reasonably close
+            if best_idx is not None and best_idx not in used_idx and best_score >= 0.30:
+                ordered.append(artworks[best_idx])
+                used_idx.add(best_idx)
 
-        # Append any remaining artworks (not in top 10)
-        for art in artworks:
-            if art not in used:
+        # Append remaining artworks in original order
+        for idx, art in enumerate(artworks):
+            if idx not in used_idx:
                 ordered.append(art)
 
         return text, ordered
