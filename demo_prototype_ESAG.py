@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from PIL import Image
 
 # ---------------------------------------------------------------
-# 1. Secure API Key Loading
+# 1. OpenAI API Key Loading, you can directly include the key between the big bracket inside double quotation mark but for safety you can create a variable to avoid API expose
 # ---------------------------------------------------------------
 if "OPENAI_API_KEY" in st.secrets:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -18,7 +18,7 @@ else:
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ---------------------------------------------------------------
-# 2. Page Setup & Styling
+# 2. Page Setup & Styling part (from font, color, size, etc.)
 # ---------------------------------------------------------------
 st.set_page_config(page_title="ESAG Art Hub", page_icon="🎨", layout="wide")
 st.markdown("""
@@ -67,9 +67,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
+#=================================================================================================================================
 # ---------------------------------------------------------------
-# 3. Helper – Convert Google Drive links to thumbnail URLs
+# 3. Converting the Google Drive links to thumbnail for Gallery section (We didn't included original photo to help site load faster)
 # ---------------------------------------------------------------
+#=================================================================================================================================
+
 @st.cache_data
 def make_drive_display_url(link):
     if not isinstance(link, str):
@@ -81,7 +85,7 @@ def make_drive_display_url(link):
 
 
 # ---------------------------------------------------------------
-# 4. Load Artwork Data from Local CSV
+# 4. Loading the Artwork Data from CSV file
 # ---------------------------------------------------------------
 @st.cache_data
 def load_artworks():
@@ -112,7 +116,7 @@ def load_artworks():
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 5. AI Recommendation Helper (Short output + real sort)
+# 5. AI Recommendation Helper (Short output + real sort) , This section is solely for AI setup for recomendation of visitor's search
 # ---------------------------------------------------------------
 
 
@@ -139,6 +143,11 @@ def recommend_artworks_with_openai(query, artworks):
         f"(tags: {a.get('tag 1','')}, {a.get('tag 2','')})"
         for a in artworks
     ]) +
+
+    # =====================================================================================================================================================
+    ### From here, we are giving OpenAI instruction on how to filter and give recomendation to user based on the search query, the better instruction given, the best will be recommendation
+    # =====================================================================================================================================================
+    
     "\n\nRules:\n"
     "• Give highest priority to what the buyer is searching, always try to understand the synonym of that search and analyze all arts available in gallery and then try next step it that doesn't match.\n"
     "• Give highest priority to artworks whose TITLE or TAGS literally mention the buyer’s query words.\n"
@@ -205,10 +214,12 @@ def recommend_artworks_with_openai(query, artworks):
 
 
 
+#======================================================================================
+# ---------------------------------------------------------------
+# 6. Header & Tabs section
+# ---------------------------------------------------------------
+#======================================================================================
 
-# ---------------------------------------------------------------
-# 6. Header & Tabs
-# ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
 
@@ -236,7 +247,9 @@ else:
         except Exception:
             st.experimental_rerun()
 
+# ======================================================================================
 # Button to trigger Home refresh manually
+# ====================================================================================
 if st.sidebar.button("⟳ Refresh"):
     st.session_state["just_clicked_home"] = True
     try:
@@ -258,7 +271,9 @@ with home_tab:
     a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
     s_sel = st.sidebar.selectbox("Filter by Suburb", ["All"] + suburbs)
 
-    # ---- Price Range Filter (bands) ----
+    # ===============================================================
+    ### ---- Price Range Filter (bands) ----
+    # ===============================================================
     price_band_labels = [
         "All",
         "100 - 500",
@@ -293,7 +308,12 @@ with home_tab:
             and lo <= float(a.get("price_num")) <= hi
         ]
 
+
+    # ===============================================================
     # --- AI Recommendations ---
+    # ===============================================================
+
+    
     st.markdown("### Start Discovering your Art from Sidebar ")
     if query and openai.api_key:
         with st.spinner("Finding best matches..."):
@@ -307,7 +327,11 @@ with home_tab:
     else:
         ordered = filtered
 
+
+    # ===============================================================
     # --- Gallery Display ---
+    # ===============================================================
+    
     st.markdown("### Gallery")
     cols = st.columns(3)
     for i, art in enumerate(ordered):
@@ -342,7 +366,7 @@ with home_tab:
  
 
 # ===============================================================
-#  OTHER TABS
+#  Extra TABS Page
 # ===============================================================
 with about_tab:
     st.markdown("## About Us")
