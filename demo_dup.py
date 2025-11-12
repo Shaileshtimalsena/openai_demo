@@ -114,22 +114,34 @@ ARTWORKS = load_artworks()
 # ---------------------------------------------------------------
 # 5. AI Recommendation Helper (Short output + real sort)
 # ---------------------------------------------------------------
+
+
 def recommend_artworks_with_openai(query, artworks):
     """
-    Short AI recommendations and reorder gallery strictly following AI's 1–2–3 order.
+    AI gives up-to-10 short recommendations, and the gallery strictly follows
+    the AI's 1–10 order before showing remaining artworks.
     """
     if not query:
         return None, artworks
 
+    # --- Prompt now requests up to 10 items ---
     prompt = (
-        f"You are an expert art curator. A buyer is looking for: '{query}'. "
-        f"Available artworks: {', '.join([a.get('title', 'Untitled') for a in artworks])}. "
-        "Select the 3 most relevant artworks and explain briefly (1 line each) why each fits logically. "
-        "Format as:\n"
-        "Top Recommendations:\n"
+        f"You are an expert art curator. A buyer is looking for: '{query}'.\n"
+        "Here is the list of available artworks with their tags and suburbs:\n"
+        + "\n".join([
+            f"- {a.get('title','Untitled')} "
+            f"(tags: {a.get('tag 1','')}, {a.get('tag 2','')}, suburb: {a.get('suburb','')})"
+            for a in artworks
+        ]) +
+        "\n\nSelect up to 10 artworks that best match the buyer's request. "
+        "For each, write one short logical reason (max one line) why it fits. "
+        "Be literal if the buyer names a concrete object (e.g., 'flower' "
+        "should pick artworks truly related to flowers). "
+        "Format:\nTop Recommendations:\n"
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
-        "3. ..."
+        "...\n"
+        "10. ..."
     )
 
     try:
@@ -141,26 +153,29 @@ def recommend_artworks_with_openai(query, artworks):
         )
         text = response.choices[0].message.content.strip()
 
-        # ---- Extract AI's top titles exactly in listed order ----
+        # ---- Extract up to 10 AI titles in exact order ----
         ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
         ranked_titles = [t.strip().lower() for t in ranked_titles if t.strip()]
 
-        # ---- Match artworks strictly by AI order ----
+        # ---- Reorder artworks exactly by AI order ----
         ordered = []
+        used = set()
         for ai_title in ranked_titles:
             best_match = None
             best_score = 0
             for art in artworks:
-                score = difflib.SequenceMatcher(None, ai_title, art.get("title", "").lower()).ratio()
+                title_l = art.get("title", "").lower()
+                score = difflib.SequenceMatcher(None, ai_title, title_l).ratio()
                 if score > best_score:
                     best_score = score
                     best_match = art
-            if best_match and best_match not in ordered:
+            if best_match and best_match not in used:
                 ordered.append(best_match)
+                used.add(best_match)
 
-        # ---- Add remaining artworks (that AI didn't list) ----
+        # Append any remaining artworks (not in top 10)
         for art in artworks:
-            if art not in ordered:
+            if art not in used:
                 ordered.append(art)
 
         return text, ordered
@@ -168,9 +183,6 @@ def recommend_artworks_with_openai(query, artworks):
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
-
-
-# ---------------------------------------------------------------
 
 
 
