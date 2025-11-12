@@ -287,7 +287,7 @@ with home_tab:
         ]
 
     # --- AI Recommendations ---
-    st.markdown("### Recommended Artworks")
+    st.markdown("### Start Discovering your Art from Sidebar ")
     if query and openai.api_key:
         with st.spinner("Finding best matches..."):
             rec_text, ordered = recommend_artworks_with_openai(query, filtered)
