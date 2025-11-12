@@ -107,46 +107,46 @@ ARTWORKS = load_artworks()
 # 5. AI Recommendation Helper
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
+    """
+    Returns short, logical AI recommendations and reorders artworks by best match.
+    Keeps the UI simple and the gallery quietly re-sorted.
+    """
     if not query:
         return None, artworks
 
-    # ✨ Updated prompt: ask for logical explanations per artwork
+    # Compact, precise prompt
     prompt = (
-        f"You are an art curator. A buyer says: '{query}'.\n"
-        f"Here are the available artworks: {', '.join([a.get('title', 'Untitled') for a in artworks])}.\n\n"
-        "Please:\n"
-        "1. Recommend up to 3 artworks that best match what the buyer is looking for.\n"
-        "2. For each recommendation, give a short and logical reason (e.g., theme, emotion, value, colour, symbolism).\n"
-        "3. Format your reply clearly as:\n"
-        "1. <Artwork Title> – <Reason>\n"
+        f"You are an expert art curator. A buyer is looking for: '{query}'. "
+        f"Available artworks: {', '.join([a.get('title', 'Untitled') for a in artworks])}. "
+        "Select the 3 most relevant artworks and explain briefly (max one short line each) "
+        "why each fits the request logically. "
+        "Format as:\n"
+        "Top Recommendations:\n"
+        "1. <Artwork Title> – <1-line reason>\n"
         "2. ...\n"
-        "3. ...\n"
-        "Keep explanations concise but meaningful."
+        "3. ..."
     )
 
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
-            temperature=0.6,
+            temperature=0.4,
         )
-
         text = response.choices[0].message.content.strip()
 
-        # 🧠 Extract artwork titles mentioned by AI
-        matched_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
-        matched_titles = [t.strip() for t in matched_titles if t.strip()]
+        # extract titles like "1. Whisper of Celestial Dreams – ..."
+        ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
+        ranked_titles = [t.strip() for t in ranked_titles if t.strip()]
 
-        # 🧩 Fuzzy reorder the artworks so AI matches come first
+        # reorder artworks according to best fuzzy title matches
         ordered = []
-        for t in matched_titles:
+        for title in ranked_titles:
             for art in artworks:
-                if art["title"].lower().startswith(t.lower()) or t.lower() in art["title"].lower():
+                if title.lower() in art["title"].lower() or art["title"].lower().startswith(title.lower()):
                     if art not in ordered:
                         ordered.append(art)
                         break
-
-        # add remaining artworks afterward
         for art in artworks:
             if art not in ordered:
                 ordered.append(art)
@@ -156,6 +156,7 @@ def recommend_artworks_with_openai(query, artworks):
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
+
 
 # ---------------------------------------------------------------
 # 6. Header & Tabs
