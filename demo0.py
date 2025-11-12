@@ -9,6 +9,7 @@ import openai, os, base64, re, requests
 from dotenv import load_dotenv
 from PIL import Image
 from io import BytesIO
+import difflib
 
 # ---------------------------------------------------------------
 # 1. Secure API Key Loading
@@ -102,31 +103,49 @@ ARTWORKS = load_artworks()
 def recommend_artworks_with_openai(query, artworks):
     if not query:
         return None, artworks
-    prompt = f"You are an AI art curator. The buyer is looking for: '{query}'. " \
-             f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. " \
-             "Rank the 3 most relevant and explain briefly."
+
+    prompt = (
+        f"You are an AI art curator. The buyer is looking for: '{query}'. "
+        f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. "
+        "Rank the 3 most relevant titles and explain briefly."
+    )
+
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
         )
         text = response.choices[0].message.content
-        pattern = r"\d+\.\s*([^\n-]+)"
-        matched = re.findall(pattern, text)
+
+        # Extract ranked titles (e.g. "1. Ocean Dream – Abstract")
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        ranked_titles = []
+        for l in lines:
+            if l[0].isdigit():
+                t = re.sub(r"^\d+\.\s*", "", l)
+                ranked_titles.append(t.strip(" -*\""))
+
+        # Fuzzy match with actual artwork titles
         ordered = []
-        for m in matched:
-            for art in artworks:
-                if art["title"].lower().startswith(m.strip().lower()):
-                    ordered.append(art)
-                    break
-        for art in artworks:
-            if art not in ordered:
-                ordered.append(art)
+        for title in ranked_titles:
+            best = difflib.get_close_matches(
+                title.lower(), [a["title"].lower() for a in artworks], n=1, cutoff=0.4
+            )
+            if best:
+                match = next(a for a in artworks if a["title"].lower() == best[0])
+                if match not in ordered:
+                    ordered.append(match)
+
+        # Append remaining artworks (not in top 3)
+        for a in artworks:
+            if a not in ordered:
+                ordered.append(a)
+
         return text, ordered
+
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
-
 # ---------------------------------------------------------------
 # 5. Header & Tabs
 # ---------------------------------------------------------------
