@@ -116,7 +116,7 @@ ARTWORKS = load_artworks()
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     """
-    Short AI recommendations and reorders gallery exactly to AI's 1–2–3 order.
+    Short AI recommendations and reorder gallery strictly following AI's 1–2–3 order.
     """
     if not query:
         return None, artworks
@@ -133,6 +133,7 @@ def recommend_artworks_with_openai(query, artworks):
     )
 
     try:
+        import difflib
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
@@ -140,33 +141,28 @@ def recommend_artworks_with_openai(query, artworks):
         )
         text = response.choices[0].message.content.strip()
 
-        # extract titles like "1. Whisper of Celestial Dreams – ..."
+        # ---- Extract AI's top titles exactly in listed order ----
         ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
         ranked_titles = [t.strip().lower() for t in ranked_titles if t.strip()]
 
-        # enforce AI order: 1,2,3 at top, then rest
-        def best_match_position(title_lower):
-            best_pos = None
-            best_sim = 0
-            for idx, t in enumerate(ranked_titles):
-                sim = difflib.SequenceMatcher(None, title_lower, t).ratio()
-                if sim > best_sim:
-                    best_sim = sim
-                    best_pos = idx
-            if best_sim >= 0.55:
-                return best_pos
-            return 999
+        # ---- Match artworks strictly by AI order ----
+        ordered = []
+        for ai_title in ranked_titles:
+            # find the most similar artwork title to each AI suggestion
+            best_match = None
+            best_score = 0
+            for art in artworks:
+                score = difflib.SequenceMatcher(None, ai_title, art.get("title", "").lower()).ratio()
+                if score > best_score:
+                    best_score = score
+                    best_match = art
+            if best_match and best_match not in ordered:
+                ordered.append(best_match)
 
-        ordered = sorted(
-            artworks,
-            key=lambda a: best_match_position(a.get("title", "").lower())
-        )
+        # ---- Add remaining artworks (that AI didn't list) ----
+        for art in artworks:
+            if art not in ordered:
 
-        return text, ordered
-
-    except Exception as e:
-        st.error(f"OpenAI error: {e}")
-        return None, artworks
 
 
 # ---------------------------------------------------------------
