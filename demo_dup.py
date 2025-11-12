@@ -108,21 +108,18 @@ ARTWORKS = load_artworks()
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     """
-    Returns short, logical AI recommendations and reorders artworks by best match.
-    Keeps the UI simple and the gallery quietly re-sorted.
+    Returns concise AI recommendations and reorders artworks properly by match strength.
     """
     if not query:
         return None, artworks
 
-    # Compact, precise prompt
     prompt = (
         f"You are an expert art curator. A buyer is looking for: '{query}'. "
         f"Available artworks: {', '.join([a.get('title', 'Untitled') for a in artworks])}. "
-        "Select the 3 most relevant artworks and explain briefly (max one short line each) "
-        "why each fits the request logically. "
+        "Select the 3 most relevant artworks and explain briefly (1 line each) why each fits logically. "
         "Format as:\n"
         "Top Recommendations:\n"
-        "1. <Artwork Title> – <1-line reason>\n"
+        "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "3. ..."
     )
@@ -135,27 +132,27 @@ def recommend_artworks_with_openai(query, artworks):
         )
         text = response.choices[0].message.content.strip()
 
-        # extract titles like "1. Whisper of Celestial Dreams – ..."
+        # Extract recommended titles (handles e.g. "1. Whisper of Celestial Dreams – ...")
         ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
-        ranked_titles = [t.strip() for t in ranked_titles if t.strip()]
+        ranked_titles = [t.strip().lower() for t in ranked_titles if t.strip()]
 
-        # reorder artworks according to best fuzzy title matches
-        ordered = []
-        for title in ranked_titles:
-            for art in artworks:
-                if title.lower() in art["title"].lower() or art["title"].lower().startswith(title.lower()):
-                    if art not in ordered:
-                        ordered.append(art)
-                        break
-        for art in artworks:
-            if art not in ordered:
-                ordered.append(art)
+        # Compute similarity score for sorting
+        def similarity(a_title):
+            import difflib
+            a_title = a_title.lower()
+            if not ranked_titles:
+                return 0
+            return max([difflib.SequenceMatcher(None, a_title, t).ratio() for t in ranked_titles])
+
+        # Sort artworks by highest similarity to any AI-recommended title
+        ordered = sorted(artworks, key=lambda a: similarity(a.get("title", "")), reverse=True)
 
         return text, ordered
 
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
+
 
 
 # ---------------------------------------------------------------
@@ -178,6 +175,20 @@ with home_tab:
     a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
     s_sel = st.sidebar.selectbox("Filter by Suburb", ["All"] + suburbs)
 
+    # New: Filter by Price Range
+    price_values = sorted(set(a["price"] for a in ARTWORKS if a.get("price")))
+    p_sel = st.sidebar.selectbox("Filter by Price", ["All"] + price_values)
+
+    # Apply filters
+    filtered = ARTWORKS
+    if a_sel != "All":
+        filtered = [a for a in filtered if a["artist"] == a_sel]
+    if s_sel != "All":
+        filtered = [a for a in filtered if a["suburb"] == s_sel]
+    if p_sel != "All":
+        filtered = [a for a in filtered if str(a.get("price")) == str(p_sel)]
+
+    
     filtered = ARTWORKS
     if a_sel != "All":
         filtered = [a for a in filtered if a["artist"] == a_sel]
