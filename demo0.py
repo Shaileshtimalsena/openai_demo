@@ -1,16 +1,17 @@
+
 # ===============================================================
-#  ESAG Art Hub – AI-Powered Prototype (Final Version)
+#  ESAG Art Hub – Final Streamlit App (Dynamic CSV + Drive Thumbnails + AI)
 # ===============================================================
 
 import streamlit as st
-import openai, os, base64
+import pandas as pd
+import openai, os, base64, re, requests
 from dotenv import load_dotenv
 from PIL import Image
-import random
 from io import BytesIO
 
 # ---------------------------------------------------------------
-# 1. Secure API-Key Loading
+# 1. Secure API Key Loading
 # ---------------------------------------------------------------
 if "OPENAI_API_KEY" in st.secrets:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -22,8 +23,7 @@ else:
 # 2. Page Setup & Styling
 # ---------------------------------------------------------------
 st.set_page_config(page_title="ESAG Art Hub", page_icon="🎨", layout="wide")
-st.markdown(
-    """
+st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
       background: linear-gradient(180deg,#e0f7fa 0%,#80deea 100%);
@@ -35,150 +35,198 @@ st.markdown(
     h1,h2,h3{color:#4a2600;text-shadow:1px 1px 2px rgba(255,255,255,0.7);}
     .card{border-radius:14px;background:rgba(255,255,255,0.9);padding:16px;
           box-shadow:0 4px 12px rgba(0,0,0,0.1);}
-    .badge{display:inline-block;padding:4px 10px;border-radius:999px;
-           font-size:12px;background:#ffb347;margin-right:6px;margin-bottom:6px;
-           color:#4a2600;font-weight:500;}
     div.stButton>button{background-color:#3b5998;color:white;border:none;
           border-radius:10px;padding:8px 20px;font-weight:600;transition:0.3s;}
     div.stButton>button:hover{background-color:#ffd700;color:#4a2600;transform:scale(1.05);}
     footer{visibility:hidden;}
+
+/* --- REMOVE WHITE GAP ABOVE IMAGES COMPLETELY --- */
+[data-testid="stImage"] {
+  background: none !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  margin-top: -32px !important;    /* pull image upward */
+  padding-top: 0 !important;       /* remove container padding */
+  overflow: hidden !important;     /* clip any extra white area */
+}
+
+ /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
+    [data-testid="stImage"] img {
+        height: 160px !important;
+        width: 100% !important;
+        object-fit: cover !important;
+        border-radius: 10px;
+    }
+
+
+
+
+    
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
-# 3. Artwork Data
+# 3. Load Artwork Data from GitHub (using Google Drive Thumbnails)
 # ---------------------------------------------------------------
-ARTWORKS = [
-    {"title": "Beach View", "artist": "Artist 1",
-     "image": "https://raw.githubusercontent.com/Shaileshtimalsena/capstone_demo/main/images/Beach.png",
-     "price": "AUD $$$"},
-    {"title": "Dramatic Clouds", "artist": "Artist 2",
-     "image": "https://raw.githubusercontent.com/Shaileshtimalsena/capstone_demo/main/images/Cloud.png",
-     "price": "AUD $$$"},
-    {"title": "Collision of Colors", "artist": "Artist 5",
-     "image": "https://images.pexels.com/photos/1266808/pexels-photo-1266808.jpeg",
-     "price": "AUD $$$"},
-    {"title": "Monalisa", "artist": "Artist 4",
-     "image": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Mona_Lisa.jpg",
-     "price": "AUD $$$"},
-    {"title": "Mountain with Yellow Flowers", "artist": "Artist 3",
-     "image": "https://raw.githubusercontent.com/Shaileshtimalsena/capstone_demo/main/images/flowers.png",
-     "price": "AUD $$$"},
-]
+@st.cache_data
+def make_drive_display_url(link):
+    """
+    Converts any Google Drive sharing link into a thumbnail preview link.
+    Works for both images and PDFs.
+    """
+    if not isinstance(link, str):
+        return None
+    if "drive.google.com" in link and "/d/" in link:
+        file_id = link.split("/d/")[1].split("/")[0]
+        # Always use Google Drive's thumbnail endpoint for speed and compatibility
+        return f"https://drive.google.com/thumbnail?id={file_id}"
+    return link
+
+
+@st.cache_data
+def load_artworks():
+    # ✅ Your actual CSV file hosted on GitHub
+    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts_.csv"
+
+    df = pd.read_csv(url)
+    # Add displayable image column
+    df["image"] = df["link"].apply(make_drive_display_url)
+    return df.to_dict("records")
+
+
+ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 4. Header & Navigation
+# 4. AI Recommendation Helper
+# ---------------------------------------------------------------
+def recommend_artworks_with_openai(query, artworks):
+    if not query:
+        return None, artworks
+    prompt = f"You are an AI art curator. The buyer is looking for: '{query}'. " \
+             f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. " \
+             "Rank the 3 most relevant and explain briefly."
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": prompt}],
+        )
+        text = response.choices[0].message.content
+        pattern = r"\d+\.\s*([^\n-]+)"
+        matched = re.findall(pattern, text)
+        ordered = []
+        for m in matched:
+            for art in artworks:
+                if art["title"].lower().startswith(m.strip().lower()):
+                    ordered.append(art)
+                    break
+        for art in artworks:
+            if art not in ordered:
+                ordered.append(art)
+        return text, ordered
+    except Exception as e:
+        st.error(f"OpenAI error: {e}")
+        return None, artworks
+
+# ---------------------------------------------------------------
+# 5. Header & Tabs
 # ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
 
-
-home_tab, about_tab, privacy_tab, contact_tab = st.tabs(
-    ["Home", "About Us", "Privacy Policy", "Contact Us"]
-)
+home_tab, about_tab, privacy_tab, contact_tab = st.tabs(["Home", "About Us", "Privacy Policy", "Contact Us"])
 
 # ===============================================================
 #  HOME TAB
 # ===============================================================
 with home_tab:
     st.sidebar.header("Find Your Art")
-    query = st.sidebar.text_input(
-        "Describe what you’re looking for",
-        placeholder="e.g. abstract calm ocean scene",
-    )
+    query = st.sidebar.text_input("Describe what you’re looking for", placeholder="e.g. abstract calm ocean scene")
 
-    # ---------- Gallery ----------
-    st.markdown("### Artworks")
+    artists = sorted(set(a["artist"] for a in ARTWORKS))
+    prices = sorted(set(a["price_range"] for a in ARTWORKS))
+    a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
+    p_sel = st.sidebar.selectbox("Filter by Price Range", ["All"] + prices)
+
+    filtered = ARTWORKS
+    if a_sel != "All":
+        filtered = [a for a in filtered if a["artist"] == a_sel]
+    if p_sel != "All":
+        filtered = [a for a in filtered if a["price_range"] == p_sel]
+
+    # --- AI Recommendations ---
+    st.markdown("### Recommended Artworks")
+    if query and openai.api_key:
+        with st.spinner("Finding best matches..."):
+            rec_text, ordered = recommend_artworks_with_openai(query, filtered)
+        if rec_text:
+            st.success("**AI Recommendations:**")
+            st.write(rec_text)
+        else:
+            st.warning("No recommendations found.")
+            ordered = filtered
+    else:
+        ordered = filtered
+
+    # --- Gallery ---
+    st.markdown("### Gallery")
     cols = st.columns(3)
-    for i, art in enumerate(ARTWORKS):
+    for i, art in enumerate(ordered):
         with cols[i % 3]:
             st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.image(art["image"], use_column_width=True)
-            st.markdown(f"**{art['title']}** <br>*by {art['artist']}*", unsafe_allow_html=True)
-            st.caption(f"{art['price']}")
+            img_url = art.get("image")
+            link = art.get("link", "")
+
+            if img_url:
+                st.image(img_url, use_column_width=True)
+                # Add PDF view button if applicable
+                if link.lower().endswith(".pdf"):
+                    st.markdown(f"[📄 View Full PDF]({link})", unsafe_allow_html=True)
+            else:
+                st.warning("Preview not available.")
+
+            st.markdown(f"**{art.get('title','Untitled')}**<br>*by {art.get('artist','Unknown')}*",
+                        unsafe_allow_html=True)
+            st.caption(f"{art.get('price_range','')} • {art.get('suburb','')}")
+            if art.get("price"):
+                st.caption(f"💲{art['price']}")
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------- AI Tagging / Analysis ----------
+    # --- AI Tagging & Analysis ---
     st.markdown("### AI Tagging & Analysis")
-    uploaded = st.file_uploader(
-        "Upload artwork (JPG/PNG) to analyze with AI",
-        type=["jpg", "jpeg", "png"]
-    )
-
-    def image_to_base64(image: Image.Image) -> str:
-        buf = BytesIO()
-        image.save(buf, format="PNG")
-        return base64.b64encode(buf.getvalue()).decode("utf-8")
-
-
-    if uploaded:
-        img = Image.open(uploaded).convert("RGB")
+    up = st.file_uploader("Upload artwork (JPG/PNG) for AI analysis", type=["jpg","jpeg","png"], key="ai_uploader")
+    if up:
+        img = Image.open(up).convert("RGB")
         st.image(img, caption="Uploaded Artwork", use_column_width=True)
-
         if openai.api_key:
-            st.info("Using OpenAI for real analysis…")
-            with st.spinner("Analyzing artwork with OpenAI (GPT-4o-mini)…"):
-                prompt = (
-                    "You are an art expert. Analyze the uploaded artwork and describe "
-                    "its theme, color palette, and emotion briefly. Respond like:\n"
-                    "Theme: <theme>, Colour palette: <palette>, Emotion: <emotion>."
-                )
-                img_b64 = image_to_base64(img)
+            with st.spinner("Analyzing artwork..."):
+                prompt = "Describe theme, colors, and emotion of this artwork."
+                b64 = base64.b64encode(up.read()).decode("utf-8")
                 try:
-                    response = openai.chat.completions.create(
+                    res = openai.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=[
-                            {"role": "system", "content": prompt},
-                            {"role": "user", "content": [
-                                {"type": "text", "text": "Analyze this artwork."},
-                                {"type": "image_url",
-                                 "image_url": f"data:image/png;base64,{img_b64}"}
-                            ]}
+                            {"role":"system","content":prompt},
+                            {"role":"user","content":[
+                                {"type":"text","text":"Analyze this."},
+                                {"type":"image_url","image_url":{"url":f"data:image/png;base64,{b64}"}}]}
                         ],
                     )
                     st.success("**AI Analysis Result:**")
-                    st.write(response.choices[0].message.content)
+                    st.write(res.choices[0].message.content)
                 except Exception as e:
                     st.error(f"OpenAI API error: {e}")
-        else:
-            st.warning("No API key detected — running in demo mode.")
-            themes = ["Abstract", "Nature", "Portrait", "Modern"]
-            colors = ["Warm", "Cool", "Neutral", "Vibrant"]
-            emotions = ["Calm", "Joyful", "Mysterious", "Energetic"]
-            st.write("**Suggested tags (simulated):**")
-            st.write(f"- Theme: **{random.choice(themes)}**")
-            st.write(f"- Colour palette: **{random.choice(colors)}**")
-            st.write(f"- Emotion: **{random.choice(emotions)}**")
-
-
-    st.markdown("---")
-    st.caption("Eastern Suburbs Art Group – Powered by AI")
-
 
 # ===============================================================
 #  OTHER TABS
 # ===============================================================
 with about_tab:
     st.markdown("## About Us")
-    st.markdown(
-        "**Eastern Suburbs Art Group (ESAG)** is a Sydney-based creative start-up "
-        "connecting local artists with art lovers everywhere."
-    )
+    st.markdown("**Eastern Suburbs Art Group (ESAG)** connects local artists with art lovers worldwide.")
 
 with privacy_tab:
     st.markdown("## Privacy Policy")
-    st.markdown(
-        "This prototype does not store or share personal data. "
-        "Uploaded images are used temporarily for AI analysis only."
-    )
+    st.markdown("No personal data is stored. Uploaded images are temporary for AI use only.")
 
 with contact_tab:
     st.markdown("## Contact Us")
-    st.markdown(
-        "Reach out via our blog to stay updated on news and events. <br>"
-        "**Website:** [easternsuburbsartgroup.blogspot.com]"
-        "(http://easternsuburbsartgroup.blogspot.com)",
-        unsafe_allow_html=True,
-    )
+    st.markdown("Visit our blog: [easternsuburbsartgroup.blogspot.com](http://easternsuburbsartgroup.blogspot.com)")
