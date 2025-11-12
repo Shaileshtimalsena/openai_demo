@@ -1,5 +1,5 @@
 # ===============================================================
-#  ESAG Art Hub – Streamlit App (AI-Explained Recommendations + Sorted Gallery)
+#  ESAG Art Hub – Streamlit App (AI Curator + Smart Reordering)
 # ===============================================================
 
 import streamlit as st
@@ -32,24 +32,19 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 h1,h2,h3{color:#4a2600;text-shadow:1px 1px 2px rgba(255,255,255,0.7);}
 .card{border-radius:14px;background:rgba(255,255,255,0.9);padding:16px;
-      box-shadow:0 4px 12px rgba(0,0,0,0.1);position:relative;}
+      box-shadow:0 4px 12px rgba(0,0,0,0.1);}
 [data-testid="stImage"] img {
   height: 160px !important;
   width: 100% !important;
   object-fit: cover !important;
   border-radius: 10px;
 }
-.badge{
-  position:absolute;top:10px;left:10px;padding:4px 8px;
-  border-radius:999px;background:#ffd700;color:#4a2600;
-  font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15);
-}
 footer{visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
-# 3. Load Artwork Data (Google Drive Thumbnail Conversion)
+# 3. Load Artwork Data
 # ---------------------------------------------------------------
 @st.cache_data
 def make_drive_display_url(link):
@@ -73,49 +68,46 @@ def load_artworks():
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 4. AI Recommendation + Curator-Style Explanation
+# 4. AI Recommendation (Curator Explanation + Sorting)
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     """
-    Uses OpenAI to:
-    1. Recommend artworks based on buyer's intent.
-    2. Explain logically why each artwork suits that intent.
-    3. Return the full explanation text and sorted list of artworks.
+    AI explains top 3 recommendations and reorders artworks accordingly.
     """
     if not query:
         return None, artworks
 
     prompt = (
-        f"You are an experienced art curator helping a buyer who says: '{query}'.\n"
+        f"You are an expert art curator. A buyer says: '{query}'.\n"
         f"Here is a list of available artworks with their details:\n"
         f"{[{'title': a['title'], 'artist': a['artist'], 'price_range': a['price_range'], 'suburb': a['suburb']} for a in artworks]}\n\n"
-        "Please do the following:\n"
-        "1. Select up to 3 artworks that best match the buyer's intent.\n"
-        "2. For each, explain briefly WHY it fits — considering artistic value, emotion, rarity, or price appeal.\n"
-        "3. Format response as:\n"
-        "1. <Artwork Title> – <Short explanation>\n"
+        "Please:\n"
+        "1. Select up to 3 artworks that best fit the buyer’s intent.\n"
+        "2. For each, write a short 1–2 sentence explanation why it suits.\n"
+        "3. Format exactly like this:\n"
+        "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "3. ...\n"
-        "Keep it natural and persuasive, as if advising an art buyer."
+        "Keep it persuasive and logical."
     )
 
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an expert art curator."},
+                {"role": "system", "content": "You are an expert fine art curator."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=0.6,
         )
 
         text = response.choices[0].message.content.strip()
 
-        # Extract ranked artwork titles
+        # Extract titles (handles formats like "1. Ocean Dream – ..." or "1. Ocean Dream:")
         ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
         ranked_titles = [t.strip() for t in ranked_titles if t.strip()]
 
-        # Match and reorder artworks
+        # Reorder artworks with fuzzy match priority
         ordered = []
         for title in ranked_titles:
             match = difflib.get_close_matches(
@@ -134,7 +126,7 @@ def recommend_artworks_with_openai(query, artworks):
         return None, artworks
 
 # ---------------------------------------------------------------
-# 5. Page Tabs
+# 5. Tabs & Layout
 # ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
@@ -146,7 +138,7 @@ home_tab, about_tab, privacy_tab, contact_tab = st.tabs(["Home", "About Us", "Pr
 # ===============================================================
 with home_tab:
     st.sidebar.header("Find Your Art")
-    query = st.sidebar.text_input("Describe what you’re looking for", placeholder="e.g. valuable and meaningful art")
+    query = st.sidebar.text_input("Describe what you’re looking for", placeholder="e.g. abstract ocean, valuable art")
 
     artists = sorted(set(a["artist"] for a in ARTWORKS))
     prices = sorted(set(a["price_range"] for a in ARTWORKS))
@@ -159,27 +151,26 @@ with home_tab:
     if p_sel != "All":
         filtered = [a for a in filtered if a["price_range"] == p_sel]
 
-    # --- AI Recommendations ---
+    # --- AI Recommendation Section ---
     st.markdown("### AI Recommendations")
     if query and openai.api_key:
         with st.spinner("Analyzing artworks and finding best matches..."):
             rec_text, ordered = recommend_artworks_with_openai(query, filtered)
         if rec_text:
-            st.info(rec_text)
+            st.success("**AI Curator Suggestions:**")
+            st.write(rec_text)
         else:
-            st.warning("No recommendations found.")
+            st.warning("No AI recommendations found.")
             ordered = filtered
     else:
         ordered = filtered
 
-    # --- Gallery Display ---
-    st.markdown("### Gallery (AI-Recommended First)")
+    # --- Gallery Display (Clean layout) ---
+    st.markdown("### Gallery")
     cols = st.columns(3)
     for i, art in enumerate(ordered):
         with cols[i % 3]:
             st.markdown("<div class='card'>", unsafe_allow_html=True)
-            if i < 3:
-                st.markdown("<div class='badge'>💎 AI Recommended</div>", unsafe_allow_html=True)
             img_url = art.get("image")
             link = art.get("link", "")
 
@@ -199,21 +190,20 @@ with home_tab:
                 st.caption(f"💲{art['price']}")
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- AI Tagging & Analysis ---
+    # --- Optional: AI Tagging & Analysis ---
     st.markdown("### AI Tagging & Analysis")
-    up = st.file_uploader("Upload artwork (JPG/PNG) for AI analysis", type=["jpg","jpeg","png"], key="ai_uploader")
+    up = st.file_uploader("Upload artwork (JPG/PNG) for AI analysis", type=["jpg","jpeg","png"])
     if up:
         img = Image.open(up).convert("RGB")
         st.image(img, caption="Uploaded Artwork", use_column_width=True)
         if openai.api_key:
             with st.spinner("Analyzing artwork..."):
-                prompt = "Describe theme, colors, and emotion of this artwork."
-                b64 = base64.b64encode(up.read()).decode("utf-8")
                 try:
+                    b64 = base64.b64encode(up.read()).decode("utf-8")
                     res = openai.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=[
-                            {"role":"system","content":prompt},
+                            {"role":"system","content":"Describe theme, colors, and emotion of this artwork."},
                             {"role":"user","content":[
                                 {"type":"text","text":"Analyze this."},
                                 {"type":"image_url","image_url":{"url":f"data:image/png;base64,{b64}"}}]}
