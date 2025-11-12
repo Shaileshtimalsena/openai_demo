@@ -1,13 +1,12 @@
 # ===============================================================
-#  ESAG Art Hub – Final Streamlit App (Dynamic CSV + Drive Thumbnails + AI)
+#  ESAG Art Hub – Final Streamlit App (Updated for New CSV)
 # ===============================================================
 
 import streamlit as st
 import pandas as pd
-import openai, os, base64, re, requests
+import openai, os, base64, re
 from dotenv import load_dotenv
 from PIL import Image
-from io import BytesIO
 
 # ---------------------------------------------------------------
 # 1. Secure API Key Loading
@@ -39,64 +38,73 @@ st.markdown("""
     div.stButton>button:hover{background-color:#ffd700;color:#4a2600;transform:scale(1.05);}
     footer{visibility:hidden;}
 
-/* --- REMOVE WHITE GAP ABOVE IMAGES COMPLETELY --- */
-[data-testid="stImage"] {
-  background: none !important;
-  box-shadow: none !important;
-  border-radius: 10px !important;
-  margin-top: -32px !important;    /* pull image upward */
-  padding-top: 0 !important;       /* remove container padding */
-  overflow: hidden !important;     /* clip any extra white area */
-}
-
- /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
+    [data-testid="stImage"] {
+      background: none !important;
+      box-shadow: none !important;
+      border-radius: 10px !important;
+      margin-top: -32px !important;
+      padding-top: 0 !important;
+      overflow: hidden !important;
+    }
     [data-testid="stImage"] img {
         height: 160px !important;
         width: 100% !important;
         object-fit: cover !important;
         border-radius: 10px;
     }
-
-
-
-
-    
+    .tags {
+        font-size: 0.85em;
+        color: #555;
+    }
+    .tag {
+        background-color: #ffe082;
+        color: #4a2600;
+        border-radius: 8px;
+        padding: 2px 8px;
+        margin-right: 4px;
+        display: inline-block;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
-# 3. Load Artwork Data from GitHub (using Google Drive Thumbnails)
+# 3. Helper – Convert Google Drive links to thumbnail URLs
 # ---------------------------------------------------------------
 @st.cache_data
 def make_drive_display_url(link):
-    """
-    Converts any Google Drive sharing link into a thumbnail preview link.
-    Works for both images and PDFs.
-    """
     if not isinstance(link, str):
         return None
     if "drive.google.com" in link and "/d/" in link:
         file_id = link.split("/d/")[1].split("/")[0]
-        # Always use Google Drive's thumbnail endpoint for speed and compatibility
         return f"https://drive.google.com/thumbnail?id={file_id}"
     return link
 
 
+# ---------------------------------------------------------------
+# 4. Load Artwork Data from Local CSV
+# ---------------------------------------------------------------
 @st.cache_data
 def load_artworks():
-    # ✅ Your actual CSV file hosted on GitHub
-    url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts_.csv"
+    df = pd.read_csv("Arts.csv")
 
-    df = pd.read_csv(url)
-    # Add displayable image column
+    # Standardise column names
+    df.columns = df.columns.str.strip().str.lower()
+    # Add image preview
     df["image"] = df["link"].apply(make_drive_display_url)
+
+    # Ensure missing values are safe
+    for col in ["artist", "title", "price", "suburb", "tag 1", "tag 2"]:
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].fillna("")
+
     return df.to_dict("records")
 
 
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 4. AI Recommendation Helper
+# 5. AI Recommendation Helper
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     if not query:
@@ -110,7 +118,7 @@ def recommend_artworks_with_openai(query, artworks):
             messages=[{"role": "system", "content": prompt}],
         )
         text = response.choices[0].message.content
-        pattern = r"\d+\.\s*([^\n-]+)"
+        pattern = r"\d+\\.\\s*([^\\n-]+)"
         matched = re.findall(pattern, text)
         ordered = []
         for m in matched:
@@ -127,7 +135,7 @@ def recommend_artworks_with_openai(query, artworks):
         return None, artworks
 
 # ---------------------------------------------------------------
-# 5. Header & Tabs
+# 6. Header & Tabs
 # ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
@@ -141,16 +149,16 @@ with home_tab:
     st.sidebar.header("Find Your Art")
     query = st.sidebar.text_input("Describe what you’re looking for", placeholder="e.g. abstract calm ocean scene")
 
-    artists = sorted(set(a["artist"] for a in ARTWORKS))
-    prices = sorted(set(a["price_range"] for a in ARTWORKS))
+    artists = sorted(set(a["artist"] for a in ARTWORKS if a["artist"]))
+    suburbs = sorted(set(a["suburb"] for a in ARTWORKS if a["suburb"]))
     a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
-    p_sel = st.sidebar.selectbox("Filter by Price Range", ["All"] + prices)
+    s_sel = st.sidebar.selectbox("Filter by Suburb", ["All"] + suburbs)
 
     filtered = ARTWORKS
     if a_sel != "All":
         filtered = [a for a in filtered if a["artist"] == a_sel]
-    if p_sel != "All":
-        filtered = [a for a in filtered if a["price_range"] == p_sel]
+    if s_sel != "All":
+        filtered = [a for a in filtered if a["suburb"] == s_sel]
 
     # --- AI Recommendations ---
     st.markdown("### Recommended Artworks")
@@ -166,7 +174,7 @@ with home_tab:
     else:
         ordered = filtered
 
-    # --- Gallery ---
+    # --- Gallery Display ---
     st.markdown("### Gallery")
     cols = st.columns(3)
     for i, art in enumerate(ordered):
@@ -177,17 +185,25 @@ with home_tab:
 
             if img_url:
                 st.image(img_url, use_column_width=True)
-                # Add PDF view button if applicable
                 if link.lower().endswith(".pdf"):
                     st.markdown(f"[📄 View Full PDF]({link})", unsafe_allow_html=True)
             else:
                 st.warning("Preview not available.")
 
+            # Artwork info
             st.markdown(f"**{art.get('title','Untitled')}**<br>*by {art.get('artist','Unknown')}*",
                         unsafe_allow_html=True)
-            st.caption(f"{art.get('price_range','')} • {art.get('suburb','')}")
+
+            if art.get("suburb"):
+                st.caption(f"📍 {art['suburb']}")
             if art.get("price"):
-                st.caption(f"💲{art['price']}")
+                st.caption(f"💲 {art['price']}")
+
+            tags = [art.get("tag 1",""), art.get("tag 2","")]
+            tags_html = "".join([f"<span class='tag'>🏷️ {t}</span>" for t in tags if t])
+            if tags_html:
+                st.markdown(f"<div class='tags'>{tags_html}</div>", unsafe_allow_html=True)
+
             st.markdown("</div>", unsafe_allow_html=True)
 
     # --- AI Tagging & Analysis ---
@@ -198,7 +214,7 @@ with home_tab:
         st.image(img, caption="Uploaded Artwork", use_column_width=True)
         if openai.api_key:
             with st.spinner("Analyzing artwork..."):
-                prompt = "Describe theme, colors, and emotion of this artwork."
+                prompt = "Describe theme, colours, and emotion of this artwork."
                 b64 = base64.b64encode(up.read()).decode("utf-8")
                 try:
                     res = openai.chat.completions.create(
