@@ -148,7 +148,6 @@ def recommend_artworks_with_openai(query, artworks):
         # ---- Match artworks strictly by AI order ----
         ordered = []
         for ai_title in ranked_titles:
-            # find the most similar artwork title to each AI suggestion
             best_match = None
             best_score = 0
             for art in artworks:
@@ -162,6 +161,17 @@ def recommend_artworks_with_openai(query, artworks):
         # ---- Add remaining artworks (that AI didn't list) ----
         for art in artworks:
             if art not in ordered:
+                ordered.append(art)
+
+        return text, ordered
+
+    except Exception as e:
+        st.error(f"OpenAI error: {e}")
+        return None, artworks
+
+
+# ---------------------------------------------------------------
+
 
 
 
