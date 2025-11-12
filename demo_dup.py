@@ -1,10 +1,10 @@
 # ===============================================================
-#  ESAG Art Hub – Final Streamlit App (Updated for New CSV)
+#  ESAG Art Hub – Final Streamlit App (AI Sort + Working Price Filter)
 # ===============================================================
 
 import streamlit as st
 import pandas as pd
-import openai, os, base64, re
+import openai, os, base64, re, difflib
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -86,17 +86,25 @@ def make_drive_display_url(link):
 @st.cache_data
 def load_artworks():
     df = pd.read_csv("Arts.csv")
-
-    # Standardise column names
     df.columns = df.columns.str.strip().str.lower()
-    # Add image preview
+
+    # Convert Drive link to thumbnail
     df["image"] = df["link"].apply(make_drive_display_url)
 
-    # Ensure missing values are safe
+    # Ensure safe defaults for all expected columns
     for col in ["artist", "title", "price", "suburb", "tag 1", "tag 2"]:
         if col not in df.columns:
             df[col] = ""
         df[col] = df[col].fillna("")
+
+    # Convert price to numeric for filtering
+    if "price" in df.columns:
+        df["price_num"] = pd.to_numeric(
+            df["price"].astype(str).str.replace(r"[^0-9.]", "", regex=True),
+            errors="coerce"
+        )
+    else:
+        df["price_num"] = pd.NA
 
     return df.to_dict("records")
 
@@ -104,11 +112,11 @@ def load_artworks():
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 5. AI Recommendation Helper
+# 5. AI Recommendation Helper (Short output + real sort)
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     """
-    Returns concise AI recommendations and reorders artworks properly by match strength.
+    Short AI recommendations and reorders gallery exactly to AI's 1–2–3 order.
     """
     if not query:
         return None, artworks
@@ -132,27 +140,33 @@ def recommend_artworks_with_openai(query, artworks):
         )
         text = response.choices[0].message.content.strip()
 
-        # Extract recommended titles (handles e.g. "1. Whisper of Celestial Dreams – ...")
+        # extract titles like "1. Whisper of Celestial Dreams – ..."
         ranked_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
         ranked_titles = [t.strip().lower() for t in ranked_titles if t.strip()]
 
-        # Compute similarity score for sorting
-        def similarity(a_title):
-            import difflib
-            a_title = a_title.lower()
-            if not ranked_titles:
-                return 0
-            return max([difflib.SequenceMatcher(None, a_title, t).ratio() for t in ranked_titles])
+        # enforce AI order: 1,2,3 at top, then rest
+        def best_match_position(title_lower):
+            best_pos = None
+            best_sim = 0
+            for idx, t in enumerate(ranked_titles):
+                sim = difflib.SequenceMatcher(None, title_lower, t).ratio()
+                if sim > best_sim:
+                    best_sim = sim
+                    best_pos = idx
+            if best_sim >= 0.55:
+                return best_pos
+            return 999
 
-        # Sort artworks by highest similarity to any AI-recommended title
-        ordered = sorted(artworks, key=lambda a: similarity(a.get("title", "")), reverse=True)
+        ordered = sorted(
+            artworks,
+            key=lambda a: best_match_position(a.get("title", "").lower())
+        )
 
         return text, ordered
 
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
-
 
 
 # ---------------------------------------------------------------
@@ -175,25 +189,40 @@ with home_tab:
     a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
     s_sel = st.sidebar.selectbox("Filter by Suburb", ["All"] + suburbs)
 
-    # New: Filter by Price Range
-    price_values = sorted(set(a["price"] for a in ARTWORKS if a.get("price")))
-    p_sel = st.sidebar.selectbox("Filter by Price", ["All"] + price_values)
+    # ---- Price Range Filter (bands) ----
+    price_band_labels = [
+        "All",
+        "100 - 500",
+        "500 - 1000",
+        "1000 - 2000",
+        "2000 - 5000",
+        "5000 - 10000",
+    ]
+    p_sel = st.sidebar.selectbox("Filter by Price Range (AUD)", price_band_labels)
 
     # Apply filters
     filtered = ARTWORKS
     if a_sel != "All":
-        filtered = [a for a in filtered if a["artist"] == a_sel]
+        filtered = [a for a in filtered if a.get("artist") == a_sel]
     if s_sel != "All":
-        filtered = [a for a in filtered if a["suburb"] == s_sel]
-    if p_sel != "All":
-        filtered = [a for a in filtered if str(a.get("price")) == str(p_sel)]
+        filtered = [a for a in filtered if a.get("suburb") == s_sel]
 
-    
-    filtered = ARTWORKS
-    if a_sel != "All":
-        filtered = [a for a in filtered if a["artist"] == a_sel]
-    if s_sel != "All":
-        filtered = [a for a in filtered if a["suburb"] == s_sel]
+    # Price range filter
+    bands = {
+        "100 - 500": (100, 500),
+        "500 - 1000": (500, 1000),
+        "1000 - 2000": (1000, 2000),
+        "2000 - 5000": (2000, 5000),
+        "5000 - 10000": (5000, 10000),
+    }
+    if p_sel != "All":
+        lo, hi = bands[p_sel]
+        filtered = [
+            a for a in filtered
+            if a.get("price_num") is not None
+            and pd.notna(a.get("price_num"))
+            and lo <= float(a.get("price_num")) <= hi
+        ]
 
     # --- AI Recommendations ---
     st.markdown("### Recommended Artworks")
