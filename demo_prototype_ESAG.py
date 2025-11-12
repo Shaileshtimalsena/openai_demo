@@ -132,19 +132,25 @@ def recommend_artworks_with_openai(query, artworks):
         )
 
     prompt = (
-        f"You are an expert art curator. A buyer is looking for: '{query}'.\n"
-        "Here is the list of available artworks with their tags and suburbs:\n"
-        + "\n".join(catalogue_lines) +
-        "\n\nSelect up to 5 artworks that best match the buyer's request. "
-        "For each, write ONE short logical reason (max one line). Be literal if the buyer names a concrete object "
-        "(e.g., 'flower' must select artworks explicitly about flowers).\n"
-        "Format exactly:\n"
-        "Top Recommendations:\n"
-        "1. <Artwork Title> – <Reason>\n"
-        "2. ...\n"
-        "...\n"
-        "5. ..."
-    )
+    f"You are an expert art curator. The buyer request is: '{query}'.\n"
+    "Here is the artwork catalogue with tags and suburbs:\n"
+    + "\n".join([
+        f"- {a.get('title','Untitled')} "
+        f"(tags: {a.get('tag 1','')}, {a.get('tag 2','')})"
+        for a in artworks
+    ]) +
+    "\n\nRules:\n"
+    "• Give highest priority to artworks whose TITLE or TAGS literally mention the buyer’s query words.\n"
+    "• Only if no literal matches exist, then choose conceptually related ones based on the analysis of the photo or the art.\n"
+    "• If the query is a PLACE (e.g., 'Sydney', 'Paris') or any scene, nature, animals, prefer artworks depicting that place, its skyline, harbour, things, environment or landmarks.\n"
+    "• Return up to 5 short recommendations (1 line each) in this format:\n"
+    "Top Recommendations:\n"
+    "1. <Artwork Title> – <Reason>\n"
+    "2. ...\n"
+    "...\n"
+    "5. ..."
+)
+
 
     try:
         import re, difflib
