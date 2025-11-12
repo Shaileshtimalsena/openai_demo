@@ -118,7 +118,7 @@ ARTWORKS = load_artworks()
 
 def recommend_artworks_with_openai(query, artworks):
     """
-    Ask OpenAI for up to 10 short recommendations (1 line each),
+    Ask OpenAI for up to 5 short recommendations (1 line each),
     then reorder the gallery to follow the AI's order exactly.
     """
     if not query:
