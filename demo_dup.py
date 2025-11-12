@@ -332,30 +332,7 @@ with home_tab:
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- AI Tagging & Analysis ---
-    st.markdown("### AI Tagging & Analysis")
-    up = st.file_uploader("Upload artwork (JPG/PNG) for AI analysis", type=["jpg","jpeg","png"], key="ai_uploader")
-    if up:
-        img = Image.open(up).convert("RGB")
-        st.image(img, caption="Uploaded Artwork", use_column_width=True)
-        if openai.api_key:
-            with st.spinner("Analyzing artwork..."):
-                prompt = "Describe theme, colours, and emotion of this artwork."
-                b64 = base64.b64encode(up.read()).decode("utf-8")
-                try:
-                    res = openai.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role":"system","content":prompt},
-                            {"role":"user","content":[
-                                {"type":"text","text":"Analyze this."},
-                                {"type":"image_url","image_url":{"url":f"data:image/png;base64,{b64}"}}]}
-                        ],
-                    )
-                    st.success("**AI Analysis Result:**")
-                    st.write(res.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"OpenAI API error: {e}")
+ 
 
 # ===============================================================
 #  OTHER TABS
