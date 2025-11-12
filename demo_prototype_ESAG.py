@@ -264,38 +264,17 @@ if st.sidebar.button("⟳ Refresh"):
 # ===============================================================
 with home_tab:
 # ===============================================================
-# ===============================================================
-# ===============================================================
-
-    # ===============================================================
-    # Sidebar Controls with Persistent Keys
-    # ===============================================================
     st.sidebar.header("Find Your Art")
+    query = st.sidebar.text_input("Describe what you’re looking for", placeholder="e.g. abstract calm ocean scene")
 
-    # Search input
-    query = st.sidebar.text_input(
-        "Describe what you’re looking for",
-        placeholder="e.g. abstract calm ocean scene",
-        key="search_query"
-    )
-
-    # Artist and suburb filters
     artists = sorted(set(a["artist"] for a in ARTWORKS if a["artist"]))
     suburbs = sorted(set(a["suburb"] for a in ARTWORKS if a["suburb"]))
+    a_sel = st.sidebar.selectbox("Filter by Artist", ["All"] + artists)
+    s_sel = st.sidebar.selectbox("Filter by Suburb", ["All"] + suburbs)
 
-    a_sel = st.sidebar.selectbox(
-        "Filter by Artist",
-        ["All"] + artists,
-        key="artist_filter"
-    )
-
-    s_sel = st.sidebar.selectbox(
-        "Filter by Suburb",
-        ["All"] + suburbs,
-        key="suburb_filter"
-    )
-
-    # Price filter
+    # ===============================================================
+    ### ---- Price Range Filter (bands) ----
+    # ===============================================================
     price_band_labels = [
         "All",
         "100 - 500",
@@ -304,34 +283,7 @@ with home_tab:
         "2000 - 5000",
         "5000 - 10000",
     ]
-    p_sel = st.sidebar.selectbox(
-        "Filter by Price Range (AUD)",
-        price_band_labels,
-        key="price_filter"
-    )
-
-    # ===============================================================
-    # Refresh Button – clears search box + all filters
-    # ===============================================================
-    if st.sidebar.button("⟳ Refresh"):
-        for k, v in {
-            "search_query": "",
-            "artist_filter": "All",
-            "suburb_filter": "All",
-            "price_filter": "All",
-        }.items():
-            st.session_state[k] = v
-        try:
-            st.rerun()
-        except Exception:
-            st.experimental_rerun()
-
-    # Pull session values for logic below
-    query = st.session_state["search_query"]
-    a_sel = st.session_state["artist_filter"]
-    s_sel = st.session_state["suburb_filter"]
-    p_sel = st.session_state["price_filter"]
-
+    p_sel = st.sidebar.selectbox("Filter by Price Range (AUD)", price_band_labels)
 
 
 
