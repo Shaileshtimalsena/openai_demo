@@ -1,15 +1,13 @@
-
 # ===============================================================
-#  ESAG Art Hub – Final Streamlit App (Dynamic CSV + Drive Thumbnails + AI)
+#  ESAG Art Hub – Final Streamlit App (Dynamic CSV + Drive Thumbnails + AI Sorting)
 # ===============================================================
 
 import streamlit as st
 import pandas as pd
-import openai, os, base64, re, requests
+import openai, os, base64, re, requests, difflib
 from dotenv import load_dotenv
 from PIL import Image
 from io import BytesIO
-import difflib
 
 # ---------------------------------------------------------------
 # 1. Secure API Key Loading
@@ -41,28 +39,23 @@ st.markdown("""
     div.stButton>button:hover{background-color:#ffd700;color:#4a2600;transform:scale(1.05);}
     footer{visibility:hidden;}
 
-/* --- REMOVE WHITE GAP ABOVE IMAGES COMPLETELY --- */
-[data-testid="stImage"] {
-  background: none !important;
-  box-shadow: none !important;
-  border-radius: 10px !important;
-  margin-top: -32px !important;    /* pull image upward */
-  padding-top: 0 !important;       /* remove container padding */
-  overflow: hidden !important;     /* clip any extra white area */
-}
+    /* Remove white gap above images */
+    [data-testid="stImage"] {
+      background: none !important;
+      box-shadow: none !important;
+      border-radius: 10px !important;
+      margin-top: -32px !important;
+      padding-top: 0 !important;
+      overflow: hidden !important;
+    }
 
- /* --- IMAGE UNIFORM HEIGHT & ALIGNMENT --- */
+    /* Uniform image height & alignment */
     [data-testid="stImage"] img {
         height: 160px !important;
         width: 100% !important;
         object-fit: cover !important;
         border-radius: 10px;
     }
-
-
-
-
-    
     </style>
 """, unsafe_allow_html=True)
 
@@ -71,26 +64,19 @@ st.markdown("""
 # ---------------------------------------------------------------
 @st.cache_data
 def make_drive_display_url(link):
-    """
-    Converts any Google Drive sharing link into a thumbnail preview link.
-    Works for both images and PDFs.
-    """
+    """Convert any Google Drive link into a fast thumbnail preview link."""
     if not isinstance(link, str):
         return None
     if "drive.google.com" in link and "/d/" in link:
         file_id = link.split("/d/")[1].split("/")[0]
-        # Always use Google Drive's thumbnail endpoint for speed and compatibility
         return f"https://drive.google.com/thumbnail?id={file_id}"
     return link
 
 
 @st.cache_data
 def load_artworks():
-    # ✅ Your actual CSV file hosted on GitHub
     url = "https://raw.githubusercontent.com/Shaileshtimalsena/openai_demo/refs/heads/main/Arts_.csv"
-
     df = pd.read_csv(url)
-    # Add displayable image column
     df["image"] = df["link"].apply(make_drive_display_url)
     return df.to_dict("records")
 
@@ -98,7 +84,7 @@ def load_artworks():
 ARTWORKS = load_artworks()
 
 # ---------------------------------------------------------------
-# 4. AI Recommendation Helper
+# 4. AI Recommendation + Sorting
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query, artworks):
     if not query:
@@ -107,7 +93,7 @@ def recommend_artworks_with_openai(query, artworks):
     prompt = (
         f"You are an AI art curator. The buyer is looking for: '{query}'. "
         f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. "
-        "Rank the 3 most relevant titles and explain briefly."
+        "Rank the 3 most relevant artwork titles (only titles) in order of best match."
     )
 
     try:
@@ -115,39 +101,34 @@ def recommend_artworks_with_openai(query, artworks):
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
         )
-        text = response.choices[0].message.content
+        text = response.choices[0].message.content.strip()
 
-        # Extract ranked titles (e.g. "1. Ocean Dream – Abstract")
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
-        ranked_titles = []
-        for l in lines:
-            if l[0].isdigit():
-                t = re.sub(r"^\d+\.\s*", "", l)
-                ranked_titles.append(t.strip(" -*\""))
+        # Extract top-ranked titles (e.g., "1. Ocean Dream – Abstract")
+        ranked_titles = re.findall(r"\d+\.\s*([^\n]+)", text)
+        ranked_titles = [t.strip(" -*\"") for t in ranked_titles if len(t.strip()) > 0]
 
-        # Fuzzy match with actual artwork titles
-        ordered = []
-        for title in ranked_titles:
-            best = difflib.get_close_matches(
-                title.lower(), [a["title"].lower() for a in artworks], n=1, cutoff=0.4
+        # Fuzzy similarity scoring
+        scored = []
+        for art in artworks:
+            title = art["title"].lower()
+            score = max(
+                [difflib.SequenceMatcher(None, title, ai.lower()).ratio() for ai in ranked_titles],
+                default=0,
             )
-            if best:
-                match = next(a for a in artworks if a["title"].lower() == best[0])
-                if match not in ordered:
-                    ordered.append(match)
+            scored.append((score, art))
 
-        # Append remaining artworks (not in top 3)
-        for a in artworks:
-            if a not in ordered:
-                ordered.append(a)
+        # Sort artworks so best AI matches appear first
+        scored.sort(key=lambda x: x[0], reverse=True)
+        ordered = [a for _, a in scored]
 
         return text, ordered
 
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
+
 # ---------------------------------------------------------------
-# 5. Header & Tabs
+# 5. Page Tabs
 # ---------------------------------------------------------------
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
@@ -187,7 +168,7 @@ with home_tab:
         ordered = filtered
 
     # --- Gallery ---
-    st.markdown("### Gallery")
+    st.markdown("### Gallery (AI-sorted)")
     cols = st.columns(3)
     for i, art in enumerate(ordered):
         with cols[i % 3]:
@@ -197,7 +178,6 @@ with home_tab:
 
             if img_url:
                 st.image(img_url, use_column_width=True)
-                # Add PDF view button if applicable
                 if link.lower().endswith(".pdf"):
                     st.markdown(f"[📄 View Full PDF]({link})", unsafe_allow_html=True)
             else:
