@@ -135,7 +135,7 @@ def recommend_artworks_with_openai(query, artworks):
         f"You are an expert art curator. A buyer is looking for: '{query}'.\n"
         "Here is the list of available artworks with their tags and suburbs:\n"
         + "\n".join(catalogue_lines) +
-        "\n\nSelect up to 10 artworks that best match the buyer's request. "
+        "\n\nSelect up to 5 artworks that best match the buyer's request. "
         "For each, write ONE short logical reason (max one line). Be literal if the buyer names a concrete object "
         "(e.g., 'flower' must select artworks explicitly about flowers).\n"
         "Format exactly:\n"
@@ -143,7 +143,7 @@ def recommend_artworks_with_openai(query, artworks):
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "...\n"
-        "10. ..."
+        "5. ..."
     )
 
     try:
