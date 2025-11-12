@@ -230,7 +230,7 @@ else:
             st.experimental_rerun()
 
 # Button to trigger Home refresh manually
-if st.sidebar.button("🏠 Go Home / Refresh"):
+if st.sidebar.button("⟳ Refresh"):
     st.session_state["just_clicked_home"] = True
     try:
         st.rerun()
