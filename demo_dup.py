@@ -184,22 +184,35 @@ st.subheader("Discover Art That Speaks to You")
 # Tabs with working Home refresh (safe for all filters)
 home_tab, about_tab, privacy_tab, contact_tab = st.tabs(["🏠 Home", "About Us", "Privacy Policy", "Contact Us"])
 
-# --- Safe Home-tab refresh logic ---
+# --- Safe Home-tab refresh logic (fixed: no auto loop) ---
+if "just_clicked_home" not in st.session_state:
+    st.session_state["just_clicked_home"] = False
+
+# Detect first visit to Home tab
 if st.session_state.get("active_tab") != "home":
     st.session_state["active_tab"] = "home"
-elif st.session_state.get("just_clicked_home"):
-    # Reset all sidebar states safely to default values
-    st.session_state["q"] = ""
-    st.session_state["artist_sel"] = "All"
-    st.session_state["suburb_sel"] = "All"
-    st.session_state["price_sel"] = "All"
+    st.session_state["just_clicked_home"] = False
+else:
+    # Refresh only if user *manually clicked* the Home tab again
+    if st.session_state["just_clicked_home"]:
+        st.session_state["q"] = ""
+        st.session_state["artist_sel"] = "All"
+        st.session_state["suburb_sel"] = "All"
+        st.session_state["price_sel"] = "All"
+        st.session_state["just_clicked_home"] = False
+        try:
+            st.rerun()
+        except Exception:
+            st.experimental_rerun()
+
+# Button to trigger Home refresh manually
+if st.sidebar.button("🏠 Go Home / Refresh"):
+    st.session_state["just_clicked_home"] = True
     try:
         st.rerun()
     except Exception:
         st.experimental_rerun()
 
-# Track if Home was clicked again
-st.session_state["just_clicked_home"] = True
 
 
 # ===============================================================
