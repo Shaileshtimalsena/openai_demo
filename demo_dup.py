@@ -109,27 +109,50 @@ ARTWORKS = load_artworks()
 def recommend_artworks_with_openai(query, artworks):
     if not query:
         return None, artworks
-    prompt = f"You are an AI art curator. The buyer is looking for: '{query}'. " \
-             f"Here are the available artworks: {', '.join([a['title'] for a in artworks])}. " \
-             "Rank the 3 most relevant and explain briefly."
+
+    # ✨ Updated prompt: ask for logical explanations per artwork
+    prompt = (
+        f"You are an art curator. A buyer says: '{query}'.\n"
+        f"Here are the available artworks: {', '.join([a.get('title', 'Untitled') for a in artworks])}.\n\n"
+        "Please:\n"
+        "1. Recommend up to 3 artworks that best match what the buyer is looking for.\n"
+        "2. For each recommendation, give a short and logical reason (e.g., theme, emotion, value, colour, symbolism).\n"
+        "3. Format your reply clearly as:\n"
+        "1. <Artwork Title> – <Reason>\n"
+        "2. ...\n"
+        "3. ...\n"
+        "Keep explanations concise but meaningful."
+    )
+
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": prompt}],
+            temperature=0.6,
         )
-        text = response.choices[0].message.content
-        pattern = r"\d+\\.\\s*([^\\n-]+)"
-        matched = re.findall(pattern, text)
+
+        text = response.choices[0].message.content.strip()
+
+        # 🧠 Extract artwork titles mentioned by AI
+        matched_titles = re.findall(r"^\s*\d+\.\s*([^-:\n]+)", text, flags=re.MULTILINE)
+        matched_titles = [t.strip() for t in matched_titles if t.strip()]
+
+        # 🧩 Fuzzy reorder the artworks so AI matches come first
         ordered = []
-        for m in matched:
+        for t in matched_titles:
             for art in artworks:
-                if art["title"].lower().startswith(m.strip().lower()):
-                    ordered.append(art)
-                    break
+                if art["title"].lower().startswith(t.lower()) or t.lower() in art["title"].lower():
+                    if art not in ordered:
+                        ordered.append(art)
+                        break
+
+        # add remaining artworks afterward
         for art in artworks:
             if art not in ordered:
                 ordered.append(art)
+
         return text, ordered
+
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
