@@ -120,7 +120,7 @@ def make_drive_display_url(link: Any) -> Optional[str]:
 # 4. Loading the Artwork Data from CSV file
 #
 # The CSV file should have at least the following columns: artist,
-# title, price, suburb, tag 1, tag 2, and link. Extra columns are
+# title, price, suburb, tag, and link. Extra columns are
 # ignored. We also add a numeric price column for filtering.
 # ---------------------------------------------------------------
 @st.cache_data
@@ -413,7 +413,7 @@ with home_tab:
             if art.get("price"):
                 st.caption(f"💲 {art['price']}")
 
-            tags = [art.get("tag 1", ""), art.get("tag 2", "")]
+            tags = [art.get("tag", "")]
             tags_html = "".join(
                 [f"<span class='tag'>🏷️ {t}</span>" for t in tags if t]
             )
