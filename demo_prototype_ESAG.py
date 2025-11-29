@@ -11,7 +11,7 @@ search query. A key improvement over the previous version is that the sidebar
 state when the user wants to start over.
 
 To run the app, install Streamlit (`pip install streamlit`) and then run
-`streamlit run esag_art_hub.py`. Make sure that a file named `Art.csv` is in
+`streamlit run esag_art_hub.py`. Make sure that a file named `Arts.csv` is in
 the same directory (or adjust the path in `load_artworks`). The app reads
 credentials for the OpenAI API either from Streamlit's secrets or from an
 environment variable.
@@ -125,7 +125,7 @@ def make_drive_display_url(link: Any) -> Optional[str]:
 # ---------------------------------------------------------------
 @st.cache_data
 def load_artworks() -> List[Dict[str, Any]]:
-    df = pd.read_csv("Art.csv")
+    df = pd.read_csv("Arts.csv")
     # Normalize column names
     df.columns = df.columns.str.strip().str.lower()
 
