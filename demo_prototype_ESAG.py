@@ -133,7 +133,7 @@ def load_artworks() -> List[Dict[str, Any]]:
     df["image"] = df["link"].apply(make_drive_display_url)
 
     # Ensure safe defaults for all expected columns
-    for col in ["artist", "title", "price", "suburb", "tag 1", "tag 2"]:
+    for col in ["artist", "title", "price", "suburb", "tag"]:
         if col not in df.columns:
             df[col] = ""
         df[col] = df[col].fillna("")
@@ -170,7 +170,7 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
     catalogue_lines = []
     for a in artworks:
         catalogue_lines.append(
-            f"- {a.get('title','Untitled')} (tags: {a.get('tag 1','')}, {a.get('tag 2','')}, suburb: {a.get('suburb','')})"
+            f"- {a.get('title','Untitled')} (tags: {a.get('tag','')}, suburb: {a.get('suburb','')})"
         )
 
     prompt = (
@@ -178,7 +178,7 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         "Here is the artwork catalogue with tags and suburbs:\n"
         + "\n".join(
             [
-                f"- {a.get('title','Untitled')} (tags: {a.get('tag 1','')}, {a.get('tag 2','')})"
+                f"- {a.get('title','Untitled')} (tags: {a.get('tag','')})"
                 for a in artworks
             ]
         )
