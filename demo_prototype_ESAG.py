@@ -123,8 +123,12 @@ def make_drive_display_url(link: Any) -> Optional[str]:
 # title, price, suburb, tag, and link. Extra columns are
 # ignored. We also add a numeric price column for filtering.
 # ---------------------------------------------------------------
-@st.cache_data
+
 def load_artworks() -> List[Dict[str, Any]]:
+    """
+    Load artworks from the CSV file. This version does NOT cache,
+    so any updates to Arts.csv will be immediately reflected.
+    """
     df = pd.read_csv("Arts.csv")
     # Normalize column names
     df.columns = df.columns.str.strip().str.lower()
@@ -150,6 +154,9 @@ def load_artworks() -> List[Dict[str, Any]]:
     return df.to_dict("records")
 
 
+
+
+# ---------------------------------------------------------------
 # Load artworks once
 ARTWORKS = load_artworks()
 
