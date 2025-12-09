@@ -190,7 +190,7 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
             ]
         )
         + "\n\nRules:\n"
-        Match the buyer’s search query with highest precision using exact words or close synonyms.
+        " Match the buyer’s search query with highest precision using exact words or close synonyms. \n"
 
         "• Use this priority order when evaluating artworks:\n"
         "•Title (highest priority)\n"
