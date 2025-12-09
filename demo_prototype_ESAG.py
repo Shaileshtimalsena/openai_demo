@@ -209,6 +209,7 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         "•Up to 5 recommendations\n"
         "•1 short sentence each\n"
         "•Do not add explanations, greetings, or extra text. Only output the final list.\n"
+        
         "Top Recommendations:\n"
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
