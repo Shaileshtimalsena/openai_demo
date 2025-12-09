@@ -181,7 +181,7 @@ catalogue_lines.append(
     f"(tags: {a.get('tag','')}, "
     f"suburb: {a.get('suburb','')}, "
     f"price: {a.get('price_num','')}, "
-    f"artist: {a.get('artist','')})"
+    f"artist: {a.get('artist','')}"
     )
 
     prompt = (
