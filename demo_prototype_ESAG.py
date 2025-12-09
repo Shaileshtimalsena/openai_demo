@@ -194,12 +194,12 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         "• Give highest priority to TITLE of artworks and then second priority to TAGS literally mention the buyer’s query words.\n"
         "• Only if no any matches exist, then analyze logically .\n"
         "• If the query is a PLACE (e.g., 'Sydney', 'Paris') or any scene, nature, animals, prefer artworks depicting that place, its skyline, harbour, things, environment or landmarks.\n"
-        "• Return up to 5 short recommendations (1 line each) in this format:\n"
+        "• Return up to 6 short recommendations (1 line each) in this format:\n"
         "Top Recommendations:\n"
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "...\n"
-        "5. ..."
+        "6. ..."
     )
 
     try:
