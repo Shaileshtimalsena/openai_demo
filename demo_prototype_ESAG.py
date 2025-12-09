@@ -189,6 +189,7 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
                 f"(tags: {a.get('tag','')}, "
                 f"suburb: {a.get('suburb','')}, "
                 f"price: {a.get('price_num','')})"
+                f"(artist: {a.get('artist','')}, "
 
                 for a in artworks
             ]
