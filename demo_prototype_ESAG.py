@@ -185,7 +185,11 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         "Here is the artwork catalogue with tags and suburbs:\n"
         + "\n".join(
             [
-                f"- {a.get('title','Untitled')} (tags: {a.get('tag','')})"
+                f"- {a.get('title','Untitled')} "
+                f"(tags: {a.get('tag','')}, "
+                f"suburb: {a.get('suburb','')}, "
+                f"price: {a.get('price_num','')})"
+
                 for a in artworks
             ]
         )
