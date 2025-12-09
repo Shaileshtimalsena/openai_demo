@@ -165,52 +165,40 @@ ARTWORKS = load_artworks()
 # 5. AI Recommendation Helper (Short output + real sort)
 # ---------------------------------------------------------------
 def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -> Tuple[Optional[str], List[Dict[str, Any]]]:
-    """
-    Ask OpenAI for up to 5 short recommendations (1 line each), then reorder the
-    gallery to follow the AI's order exactly. If no query is provided, or if
-    the API call fails, the original order is preserved.
-    """
     if not query:
         return None, artworks
 
-    # Give the AI more context (titles + tags + suburb) so it picks literal matches
+    # Build a clean catalogue list
     catalogue_lines = []
-for a in artworks: 
-    catalogue_lines.append( 
-        f"- {a.get('title','Untitled')} " 
-        f"(tags: {a.get('tag','')}, " 
-        f"suburb: {a.get('suburb','')}, " 
-        f"price: {a.get('price_num','')}, " 
-        f"artist: {a.get('artist','')})" 
-    )
+    for a in artworks:
+        catalogue_lines.append(
+            f"- {a.get('title','Untitled')} "
+            f"(tags: {a.get('tag','')}, "
+            f"suburb: {a.get('suburb','')}, "
+            f"price: {a.get('price_num','')}, "
+            f"artist: {a.get('artist','')})"
+        )
 
     prompt = (
-        f"You are an expert art curator. The buyer request is: '{query}'.\n"
-        "Here is the artwork catalogue with tags and suburbs:\n"
-       
-        "\n".join(catalogue_lines) 
-        + "\n\nRules:\n"
-        
-        " Match the buyer’s search query with highest precision using exact words or close synonyms. \n"
-        "• Use this priority order when evaluating artworks:\n"
-        "•Title (highest priority)\n"
-        "•Tags (second priority)\n"
-        "•Image content (objects, scenes, colours, mood, landmarks)\n"
-        "•Logical inference (only if no direct matches exist)\n"
-        "•If the query is a place or scene (e.g., “Sydney”, “Paris”, “beach”, “mountain”, “harbour”), prefer artworks depicting that place, related landmarks, or similar environments.\n"
-        "•If multiple artworks match, choose the top 5 most relevant.\n"
-        "•If the query is broad (e.g., “nice art”, “colourful”), recommend the 5 artworks with the strongest title/tag alignment and visual coherence.\n"
-        "•Output format (strict):\n"
-        "•Up to 5 recommendations\n"
-        "•1 short sentence each\n"
-        "•Do not add explanations, greetings, or extra text. Only output the final list.\n"
-        
+        f"You are an expert art curator. Buyer search: '{query}'.\n\n"
+        "Artwork Catalogue:\n" +
+        "\n".join(catalogue_lines) +
+        "\n\nRules:\n"
+        "• Match the buyer’s search query with high precision using exact words or synonyms.\n"
+        "• Priority:\n"
+        "  1) Title\n"
+        "  2) Tags\n"
+        "  3) Image content (general sense)\n"
+        "  4) Location (suburb for place queries)\n"
+        "  5) Price (cheap/expensive queries)\n"
+        "• If query includes place names (e.g., Sydney, Bondi, Paris), prefer artworks with matching suburb.\n"
+        "• If query contains 'cheap', 'affordable', 'under', pick lower price_num.\n"
+        "• If query contains 'expensive', 'premium', pick higher price_num.\n"
+        "• Output STRICTLY up to 5 lines:\n"
+        "• <Title> – <short reason>\n"
+        "No extra text.\n\n"
         "Top Recommendations:\n"
-        "1. <Artwork Title> – <Reason>\n"
-        "2. ...\n"
-        "...\n"
-        "5. ..."
-        
+        "1.\n2.\n3.\n4.\n5."
     )
 
     try:
@@ -221,37 +209,31 @@ for a in artworks:
         )
         text = response.choices[0].message.content.strip()
 
-        # Extract up to 10 titles, accepting en dash, em dash or colon separators after the title
         lines = re.findall(r"^\s*\d+\.\s*([^\n]+)", text, flags=re.MULTILINE)
         ranked_titles = []
         for ln in lines:
-            # split on first separator and keep the title part
             t = re.split(r"[–—:-]", ln, maxsplit=1)[0].strip()
             if t:
                 ranked_titles.append(t.lower())
 
         if not ranked_titles:
-            # Nothing parsed from AI -> keep original order but still show the text
             return text, artworks
 
-        # Reorder to follow AI order exactly; track USED by index (ints), not dicts
         used_idx = set()
         ordered: List[Dict[str, Any]] = []
         for ai_title in ranked_titles[:10]:
-            best_idx: Optional[int] = None
+            best_idx = None
             best_score = 0.0
             for idx, art in enumerate(artworks):
-                title_l = str(art.get("title", "")).lower()
+                title_l = str(art.get("title","")).lower()
                 score = difflib.SequenceMatcher(None, ai_title, title_l).ratio()
                 if score > best_score:
                     best_score = score
                     best_idx = idx
-            # accept the match if reasonably close
             if best_idx is not None and best_idx not in used_idx and best_score >= 0.35:
                 ordered.append(artworks[best_idx])
                 used_idx.add(best_idx)
 
-        # Append remaining artworks (not listed by AI) in original order
         for idx, art in enumerate(artworks):
             if idx not in used_idx:
                 ordered.append(art)
@@ -261,6 +243,7 @@ for a in artworks:
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
+
 
 
 # ---------------------------------------------------------------
