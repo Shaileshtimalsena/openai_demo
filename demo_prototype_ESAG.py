@@ -190,16 +190,26 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
             ]
         )
         + "\n\nRules:\n"
-        "• Give highest priority to what the buyer is searching, and then analyze the terms based on the analysis of the photo. Try to understand the synonym of that search and analyze all arts available in gallery and then try next step if that doesn't match.\n"
-        "• Give highest priority to TITLE of artworks and then second priority to TAGS literally mention the buyer’s query words.\n"
-        "• Only if no any matches exist, then analyze logically .\n"
-        "• If the query is a PLACE (e.g., 'Sydney', 'Paris') or any scene, nature, animals, prefer artworks depicting that place, its skyline, harbour, things, environment or landmarks.\n"
-        "• Return up to 6 short recommendations (1 line each) in this format:\n"
+        Match the buyer’s search query with highest precision using exact words or close synonyms.
+
+        "• Use this priority order when evaluating artworks:\n"
+        "•Title (highest priority)\n"
+        "•Tags (second priority)\n"
+        "•Image content (objects, scenes, colours, mood, landmarks)\n"
+        "•Logical inference (only if no direct matches exist)\n"
+        "•If the query is a place or scene (e.g., “Sydney”, “Paris”, “beach”, “mountain”, “harbour”), prefer artworks depicting that place, related landmarks, or similar environments.\n"
+        "•If multiple artworks match, choose the top 5 most relevant.\n"
+        "•If the query is broad (e.g., “nice art”, “colourful”), recommend the 5 artworks with the strongest title/tag alignment and visual coherence.\n"
+        "•Output format (strict):\n"
+        "•Up to 5 recommendations\n"
+        "•1 short sentence each\n"
+        "•Do not add explanations, greetings, or extra text. Only output the final list.\n"
         "Top Recommendations:\n"
         "1. <Artwork Title> – <Reason>\n"
         "2. ...\n"
         "...\n"
-        "6. ..."
+        "5. ..."
+        
     )
 
     try:
