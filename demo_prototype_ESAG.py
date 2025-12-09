@@ -176,19 +176,19 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
     # Give the AI more context (titles + tags + suburb) so it picks literal matches
     catalogue_lines = []
     for a in artworks:
-        catalogue_lines.append(
-           f"- {a.get('title','Untitled')} "
-            f"(tags: {a.get('tag','')}, "
-            f"suburb: {a.get('suburb','')}, "
-            f"price: {a.get('price_num','')}, "
-            f"artist: {a.get('artist','')})"
-        )
+catalogue_lines.append(
+   f"- {a.get('title','Untitled')} "
+    f"(tags: {a.get('tag','')}, "
+    f"suburb: {a.get('suburb','')}, "
+    f"price: {a.get('price_num','')}, "
+    f"artist: {a.get('artist','')})"
+    )
 
     prompt = (
         f"You are an expert art curator. The buyer request is: '{query}'.\n"
         "Here is the artwork catalogue with tags and suburbs:\n"
-        "Artwork Catalogue:\n" +
-        "\n".join(catalogue_lines) +
+       
+        "\n".join(catalogue_lines) 
         + "\n\nRules:\n"
         
         " Match the buyer’s search query with highest precision using exact words or close synonyms. \n"
