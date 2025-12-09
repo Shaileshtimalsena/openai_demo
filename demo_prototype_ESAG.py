@@ -177,26 +177,21 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
     catalogue_lines = []
     for a in artworks:
         catalogue_lines.append(
-            f"- {a.get('title','Untitled')} (tags: {a.get('tag','')}, suburb: {a.get('suburb','')})"
+           f"- {a.get('title','Untitled')} "
+            f"(tags: {a.get('tag','')}, "
+            f"suburb: {a.get('suburb','')}, "
+            f"price: {a.get('price_num','')}, "
+            f"artist: {a.get('artist','')})"
         )
 
     prompt = (
         f"You are an expert art curator. The buyer request is: '{query}'.\n"
         "Here is the artwork catalogue with tags and suburbs:\n"
-        + "\n".join(
-            [
-                f"- {a.get('title','Untitled')} "
-                f"(tags: {a.get('tag','')}, "
-                f"suburb: {a.get('suburb','')}, "
-                f"price: {a.get('price_num','')})"
-                f"(artist: {a.get('artist','')}, "
-
-                for a in artworks
-            ]
-        )
+        "Artwork Catalogue:\n" +
+        "\n".join(catalogue_lines) +
         + "\n\nRules:\n"
+        
         " Match the buyer’s search query with highest precision using exact words or close synonyms. \n"
-
         "• Use this priority order when evaluating artworks:\n"
         "•Title (highest priority)\n"
         "•Tags (second priority)\n"
