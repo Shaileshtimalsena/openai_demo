@@ -1,7 +1,5 @@
 """
 ESAG Art Hub – Final Streamlit App
-==================================
-
 This file contains the Streamlit application for the Eastern Suburbs Art Group
 (ESAG) Art Hub. The app showcases artwork from local artists, allowing users to
 browse and filter pieces by artist, suburb and price range. It also features
@@ -16,38 +14,28 @@ the same directory (or adjust the path in `load_artworks`). The app reads
 credentials for the OpenAI API either from Streamlit's secrets or from an
 environment variable.
 """
-
 import os
 import base64
 import difflib
 import re
 from typing import Any, Dict, List, Optional, Tuple
-
 import openai
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from PIL import Image
-
-
 # ---------------------------------------------------------------
 # 1. OpenAI API Key Loading
-#
-# You can directly include the key between the big brackets inside
-# double quotation marks but for safety you can create a variable to
-# avoid exposing your API. This checks Streamlit's secrets first and
-# falls back to an environment variable loaded via dotenv.
+# You can directly include the key between the big brackets inside double quotation marks but for safety you can create a variable to
+# avoid exposing your API. This checks Streamlit's secrets first and falls back to an environment variable loaded via dotenv.
 # ---------------------------------------------------------------
 if "OPENAI_API_KEY" in st.secrets:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
 else:
     load_dotenv()
     openai.api_key = os.getenv("OPENAI_API_KEY")
-
-
 # ---------------------------------------------------------------
 # 2. Page Setup & Styling part (from font, color, size, etc.)
-# ---------------------------------------------------------------
 st.set_page_config(page_title="ESAG Art Hub", page_icon="🎨", layout="wide")
 st.markdown(
     """
@@ -97,13 +85,9 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
 # ---------------------------------------------------------------
-# 3. Converting the Google Drive links to thumbnail for Gallery section
-#
-# We convert any Google Drive link into its thumbnail URL. This is cached
-# because generating the same thumbnail repeatedly is expensive.
+# 3. Converting the Google Drive links to thumbnail for Gallery section, we convert any Google Drive link into 
+# its thumbnail URL. This is cached because generating the same thumbnail repeatedly is expensive.
 # ---------------------------------------------------------------
 @st.cache_data
 def make_drive_display_url(link: Any) -> Optional[str]:
@@ -114,15 +98,10 @@ def make_drive_display_url(link: Any) -> Optional[str]:
         file_id = link.split("/d/")[1].split("/")[0]
         return f"https://drive.google.com/thumbnail?id={file_id}"
     return link
-
-
 # ---------------------------------------------------------------
 # 4. Loading the Artwork Data from CSV file
-#
-# The CSV file should have at least the following columns: artist,
-# title, price, suburb, tag, and link. Extra columns are
+# The CSV file should have at least the following columns: artist, title, price, suburb, tag, and link. Extra columns are
 # ignored. We also add a numeric price column for filtering.
-# ---------------------------------------------------------------
 
 def load_artworks() -> List[Dict[str, Any]]:
     """
@@ -152,18 +131,12 @@ def load_artworks() -> List[Dict[str, Any]]:
         df["price_num"] = pd.NA
 
     return df.to_dict("records")
-
-
-
-
 # ---------------------------------------------------------------
 # Load artworks once
 ARTWORKS = load_artworks()
-
-
 # ---------------------------------------------------------------
 # 5. AI Recommendation Helper (Short output + real sort)
-# ---------------------------------------------------------------
+
 def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -> Tuple[Optional[str], List[Dict[str, Any]]]:
     if not query:
         return None, artworks
@@ -200,7 +173,6 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         "Top Recommendations:\n"
         "1.\n2.\n3.\n4.\n5."
     )
-
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -237,21 +209,14 @@ def recommend_artworks_with_openai(query: str, artworks: List[Dict[str, Any]]) -
         for idx, art in enumerate(artworks):
             if idx not in used_idx:
                 ordered.append(art)
-
         return text, ordered
-
     except Exception as e:
         st.error(f"OpenAI error: {e}")
         return None, artworks
-
-
-
 # ---------------------------------------------------------------
 # 6. Header & Tabs section
-# ---------------------------------------------------------------
-# The Home tab contains the gallery and filters. Additional tabs provide
-# information about the group, privacy policy and contact details.
-# ---------------------------------------------------------------
+# The Home tab contains the gallery and filters. Additional tabs provide information about the group, privacy policy and contact details.
+
 st.markdown("<h1>Eastern Suburbs Art Group (ESAG)</h1>", unsafe_allow_html=True)
 st.subheader("Discover Art That Speaks to You")
 
@@ -261,12 +226,10 @@ home_tab, about_tab, privacy_tab, contact_tab = st.tabs([
     "Privacy Policy",
     "Contact Us",
 ])
-
-
 # Maintain state about whether the user has clicked the home tab again
 if "just_clicked_home" not in st.session_state:
     st.session_state["just_clicked_home"] = False
-
+    
 # Detect first visit to Home tab
 if st.session_state.get("active_tab") != "home":
     st.session_state["active_tab"] = "home"
@@ -283,8 +246,6 @@ else:
             st.rerun()
         except Exception:
             st.experimental_rerun()
-
-
 # ======================================================================================
 # Button to trigger Home refresh manually
 #
@@ -292,7 +253,6 @@ else:
 # triggering a rerun. Using session state keys ensures the widgets show
 # fresh values upon rerun. This resolves the issue where only the gallery
 # refreshed while the filters and search box remained unchanged.
-# ====================================================================================
 if st.sidebar.button("⟳ Refresh"):
     # Clear stored values for the widgets
     st.session_state["q"] = ""
@@ -304,11 +264,7 @@ if st.sidebar.button("⟳ Refresh"):
         st.rerun()
     except Exception:
         st.experimental_rerun()
-
-
-# ===============================================================
 #  HOME TAB
-# ===============================================================
 with home_tab:
     st.sidebar.header("Find Your Art")
     # Use keys to bind widget values to session state so we can reset them
@@ -372,7 +328,6 @@ with home_tab:
             and pd.notna(a.get("price_num"))
             and lo <= float(a.get("price_num")) <= hi
         ]
-
     # --- AI Recommendations ---
     st.markdown("### Start Discovering your Art from Sidebar ")
     if query and openai.api_key:
@@ -386,7 +341,6 @@ with home_tab:
             ordered = filtered
     else:
         ordered = filtered
-
     # --- Gallery Display ---
     st.markdown("### Gallery")
     cols = st.columns(3)
@@ -424,11 +378,8 @@ with home_tab:
                 )
 
             st.markdown("</div>", unsafe_allow_html=True)
-
-
 # ===============================================================
 #  Extra TABS Page
-# ===============================================================
 with about_tab:
     st.markdown("## About Us")
     st.markdown(
